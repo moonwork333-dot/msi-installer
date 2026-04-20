@@ -6,7 +6,7 @@
   "bin": "service.js",
   "scripts": {
     "start": "node service.js",
-    "build": "pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe"
+    "build": "pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe --compress Brotli"
   },
   "keywords": [
     "remote-monitoring",
@@ -16,6 +16,11 @@
   ],
   "author": "Watson Parts",
   "license": "Proprietary",
+  "pkg": {
+    "assets": [
+      "node_modules/node-windows/bin/winsw/winsw.exe"
+    ]
+  },
   "dependencies": {
     "@microsoft/signalr": "^8.0.0",
     "node-windows": "^1.0.0-beta.8",
