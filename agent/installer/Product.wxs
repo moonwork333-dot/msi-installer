@@ -49,15 +49,15 @@
 
     <!-- Custom Actions to install/remove service using the EXE itself -->
     <CustomAction Id="InstallService" 
-                  FileKey="AgentExe"
-                  ExeCommand="--install"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="peng-rmm-agent.exe --install"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
     
     <CustomAction Id="UninstallService" 
-                  FileKey="AgentExe"
-                  ExeCommand="--uninstall"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="peng-rmm-agent.exe --uninstall"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
