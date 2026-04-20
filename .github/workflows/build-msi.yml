@@ -1,0 +1,147 @@
+name: Build PENG RMM Agent MSI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent/**'
+      - '.github/workflows/build-msi.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install WiX Toolset
+        run: choco install wixtoolset -y
+
+      - name: Install pkg and compile to standalone exe
+        shell: powershell
+        run: |
+          Write-Host "Installing dependencies..."
+          Set-Location "agent"
+          npm install
+          npm install -g pkg
+          
+          Write-Host "Compiling service.js to standalone exe..."
+          pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe
+          
+          if (-not (Test-Path "peng-rmm-agent.exe")) {
+            Write-Host "ERROR: peng-rmm-agent.exe not created"
+            exit 1
+          }
+          
+          $size = (Get-Item "peng-rmm-agent.exe").Length / 1MB
+          Write-Host "Created peng-rmm-agent.exe ($([math]::Round($size, 2)) MB)"
+          
+          Set-Location ".."
+
+      - name: Prepare installer files
+        shell: cmd
+        run: |
+          echo Copying files to installer directory...
+          cd agent\installer
+          
+          copy ..\peng-rmm-agent.exe peng-rmm-agent.exe
+          copy ..\config.json config.json
+          
+          echo.
+          echo Files in installer directory:
+          dir /B
+          
+          cd ..\..
+
+      - name: Build MSI
+        shell: cmd
+        run: |
+          cd agent\installer
+          
+          echo Building MSI...
+          echo.
+          
+          REM Get absolute path for SourceDir
+          for /f "delims=" %%I in ('cd') do set SOURCEDIR=%%I
+          echo SourceDir=%SOURCEDIR%
+          
+          echo Files available:
+          dir /B *.exe *.json *.wxs *.rtf
+          echo.
+          
+          echo Running candle.exe for x64...
+          candle.exe -arch x64 -dSourceDir="%SOURCEDIR%" Product.wxs -o Product.wixobj
+          if errorlevel 1 (
+            echo ERROR: candle failed
+            exit /b 1
+          )
+          
+          echo Running light.exe with WixUIExtension...
+          if not exist "..\dist" mkdir ..\dist
+          light.exe -ext WixUIExtension -out ..\dist\PENG-RMM-Agent-1.0.0.0.msi -sw1076 Product.wixobj
+          if errorlevel 1 (
+            echo ERROR: light failed
+            exit /b 1
+          )
+          
+          echo.
+          echo MSI created successfully:
+          dir ..\dist\*.msi
+          
+          cd ..\..
+
+      - name: Validate MSI
+        shell: powershell
+        run: |
+          $msiPath = "agent\dist\PENG-RMM-Agent-1.0.0.0.msi"
+          
+          if (Test-Path $msiPath) {
+            $file = Get-Item $msiPath
+            Write-Host "MSI file created successfully!"
+            Write-Host "  Path: $($file.FullName)"
+            Write-Host "  Size: $([math]::Round($file.Length / 1MB, 2)) MB"
+            Write-Host "  Created: $($file.CreationTime)"
+            
+            # Basic MSI validation - check magic bytes
+            $bytes = [System.IO.File]::ReadAllBytes($msiPath)[0..3]
+            $magic = [BitConverter]::ToString($bytes)
+            if ($magic -eq "D0-CF-11-E0") {
+              Write-Host "  MSI signature: Valid (OLE Compound Document)"
+            } else {
+              Write-Host "WARNING: MSI signature may be invalid: $magic"
+            }
+          } else {
+            Write-Error "MSI file was not created!"
+            exit 1
+          }
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: PENG-RMM-Agent-MSI
+          path: agent/dist/PENG-RMM-Agent-1.0.0.0.msi
+          retention-days: 30
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PENG-RMM-Agent-EXE
+          path: agent/peng-rmm-agent.exe
+          retention-days: 30
+
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            agent/dist/PENG-RMM-Agent-1.0.0.0.msi
+            agent/peng-rmm-agent.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
