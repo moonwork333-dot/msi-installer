@@ -327,38 +327,51 @@ async function main() {
   }
 }
 
-// Handle process termination
+// Handle process termination - GRACEFULLY for Windows service
 process.on("SIGINT", () => {
   log("Received SIGINT - shutting down agent...");
   stopScreenCapture();
   if (connection) {
-    connection.stop();
+    connection.stop().catch(() => {});
   }
-  process.exit(0);
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
 });
 
 process.on("SIGTERM", () => {
   log("Received SIGTERM - shutting down agent...");
   stopScreenCapture();
   if (connection) {
-    connection.stop();
+    connection.stop().catch(() => {});
   }
-  process.exit(0);
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
 });
 
-// Keep process alive on errors
+// Keep process alive on errors - CRITICAL for Windows service
 process.on("uncaughtException", (error) => {
   log("Uncaught exception: " + error.message);
+  // Don't exit - keep the service running
 });
 
 process.on("unhandledRejection", (reason) => {
   log("Unhandled rejection: " + reason);
+  // Don't exit - keep the service running
 });
 
 // Start agent
 main().catch((error) => {
   log("Failed to start agent: " + error.message);
+  // Don't exit - wait and retry
+  setTimeout(() => main().catch(() => {}), 5000);
 });
 
-// Keep the process alive
-setInterval(() => {}, 60000);
+// Keep the process alive - MUST NOT EXIT
+setInterval(() => {
+  // Heartbeat check - if process is hanging, this will keep running
+  if (!isConnected) {
+    log("[Heartbeat] Process alive, waiting for connection...");
+  }
+}, 30000);
