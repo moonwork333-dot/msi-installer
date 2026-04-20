@@ -53,7 +53,7 @@
                         Stop="both"
                         Remove="uninstall"
                         Name="WatsonRMMAgent"
-                        Wait="yes" />
+                        Wait="no" />
         
         <!-- Allow service to interact with desktop for screenshot capture -->
         <RegistryValue Root="HKLM" 
