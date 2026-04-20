@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Watson RMM - Remote monitoring agent with screen streaming and command execution",
   "main": "service.js",
+  "bin": "service.js",
   "scripts": {
     "start": "node service.js",
     "build": "pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe"
@@ -17,6 +18,7 @@
   "license": "Proprietary",
   "dependencies": {
     "@microsoft/signalr": "^8.0.0",
+    "node-windows": "^1.0.0-beta.8",
     "screenshot-desktop": "^1.15.0"
   },
   "engines": {
