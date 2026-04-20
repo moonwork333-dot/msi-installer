@@ -2,20 +2,13 @@ const signalR = require("@microsoft/signalr");
 const os = require("os");
 const { exec } = require("child_process");
 const screenshot = require("screenshot-desktop");
-const fs = require("fs");
-const path = require("path");
-const robot = require("robotjs");
-
-// Configure robotjs for smoother mouse movement
-robot.setMouseDelay(1);
-robot.setKeyboardDelay(1);
 
 // Configuration
 const CONFIG = {
   hubUrl: process.env.HUB_URL || "https://watson-parts.com/agenthub",
   reconnectDelayMs: 5000,
   heartbeatIntervalMs: 30000,
-  screenCaptureIntervalMs: 10000,
+  screenCaptureIntervalMs: 1000,
 };
 
 // Agent state
@@ -56,7 +49,7 @@ function getSystemInfo() {
 
 // Execute command
 function executeCommand(command) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     exec(command, { timeout: 60000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
       if (error) {
         resolve({
@@ -73,88 +66,6 @@ function executeCommand(command) {
       }
     });
   });
-}
-
-// Remote control functions
-function moveMouse(x, y) {
-  try {
-    robot.moveMouse(x, y);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function mouseClick(x, y, button = "left", double = false) {
-  try {
-    robot.moveMouse(x, y);
-    if (double) {
-      robot.mouseClick(button, true);
-    } else {
-      robot.mouseClick(button);
-    }
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function mouseScroll(x, y, amount) {
-  try {
-    robot.moveMouse(x, y);
-    robot.scrollMouse(0, amount);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function keyboardType(text) {
-  try {
-    robot.typeString(text);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function keyboardPress(key, modifiers = []) {
-  try {
-    robot.keyTap(key, modifiers);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function keyboardCombo(keys) {
-  try {
-    // keys is an array like ["control", "alt", "delete"]
-    const mainKey = keys[keys.length - 1];
-    const mods = keys.slice(0, -1);
-    robot.keyTap(mainKey, mods);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function getScreenSize() {
-  try {
-    const size = robot.getScreenSize();
-    return { success: true, width: size.width, height: size.height };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-function getMousePosition() {
-  try {
-    const pos = robot.getMousePos();
-    return { success: true, x: pos.x, y: pos.y };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
 }
 
 // Capture screen
@@ -281,93 +192,6 @@ async function initializeConnection() {
       console.error("Failed to send pong:", error.message);
     }
   });
-
-  // Remote Control - Mouse Move
-  connection.on("MouseMove", async (x, y) => {
-    console.log(`Mouse move to: ${x}, ${y}`);
-    const result = moveMouse(x, y);
-    try {
-      await connection.invoke("RemoteControlResult", os.hostname(), "MouseMove", result);
-    } catch (error) {
-      console.error("Failed to send mouse move result:", error.message);
-    }
-  });
-
-  // Remote Control - Mouse Click
-  connection.on("MouseClick", async (x, y, button, double) => {
-    console.log(`Mouse click at: ${x}, ${y}, button: ${button}, double: ${double}`);
-    const result = mouseClick(x, y, button || "left", double || false);
-    try {
-      await connection.invoke("RemoteControlResult", os.hostname(), "MouseClick", result);
-    } catch (error) {
-      console.error("Failed to send mouse click result:", error.message);
-    }
-  });
-
-  // Remote Control - Mouse Scroll
-  connection.on("MouseScroll", async (x, y, amount) => {
-    console.log(`Mouse scroll at: ${x}, ${y}, amount: ${amount}`);
-    const result = mouseScroll(x, y, amount);
-    try {
-      await connection.invoke("RemoteControlResult", os.hostname(), "MouseScroll", result);
-    } catch (error) {
-      console.error("Failed to send mouse scroll result:", error.message);
-    }
-  });
-
-  // Remote Control - Type Text
-  connection.on("KeyboardType", async (text) => {
-    console.log(`Keyboard type: ${text.substring(0, 20)}...`);
-    const result = keyboardType(text);
-    try {
-      await connection.invoke("RemoteControlResult", os.hostname(), "KeyboardType", result);
-    } catch (error) {
-      console.error("Failed to send keyboard type result:", error.message);
-    }
-  });
-
-  // Remote Control - Key Press (single key with optional modifiers)
-  connection.on("KeyboardPress", async (key, modifiers) => {
-    console.log(`Keyboard press: ${key}, modifiers: ${modifiers}`);
-    const result = keyboardPress(key, modifiers || []);
-    try {
-      await connection.invoke("RemoteControlResult", os.hostname(), "KeyboardPress", result);
-    } catch (error) {
-      console.error("Failed to send keyboard press result:", error.message);
-    }
-  });
-
-  // Remote Control - Key Combo (e.g., Ctrl+Alt+Delete)
-  connection.on("KeyboardCombo", async (keys) => {
-    console.log(`Keyboard combo: ${keys.join("+")}`);
-    const result = keyboardCombo(keys);
-    try {
-      await connection.invoke("RemoteControlResult", os.hostname(), "KeyboardCombo", result);
-    } catch (error) {
-      console.error("Failed to send keyboard combo result:", error.message);
-    }
-  });
-
-  // Remote Control - Get Screen Size
-  connection.on("GetScreenSize", async () => {
-    console.log("Getting screen size...");
-    const result = getScreenSize();
-    try {
-      await connection.invoke("ScreenSize", os.hostname(), result);
-    } catch (error) {
-      console.error("Failed to send screen size:", error.message);
-    }
-  });
-
-  // Remote Control - Get Mouse Position
-  connection.on("GetMousePosition", async () => {
-    const result = getMousePosition();
-    try {
-      await connection.invoke("MousePosition", os.hostname(), result);
-    } catch (error) {
-      console.error("Failed to send mouse position:", error.message);
-    }
-  });
 }
 
 // Register agent with hub
@@ -410,7 +234,7 @@ function startHeartbeat() {
 
 // Main entry point
 async function main() {
-  console.log("PENG RMM Agent v1.0.0");
+  console.log("Watson RMM Agent v1.0.0");
   console.log("Hub URL:", CONFIG.hubUrl);
   console.log("Hostname:", os.hostname());
   
@@ -436,6 +260,11 @@ process.on("SIGTERM", () => {
     connection.stop();
   }
   process.exit(0);
+});
+
+// Keep process alive on errors
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error.message);
 });
 
 // Start agent
