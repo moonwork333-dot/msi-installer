@@ -2,6 +2,8 @@ const signalR = require("@microsoft/signalr");
 const os = require("os");
 const { exec } = require("child_process");
 const screenshot = require("screenshot-desktop");
+const fs = require("fs");
+const path = require("path");
 
 // Configuration
 const CONFIG = {
@@ -9,7 +11,37 @@ const CONFIG = {
   reconnectDelayMs: 5000,
   heartbeatIntervalMs: 30000,
   screenCaptureIntervalMs: 1000,
+  logFile: path.join(process.env.ProgramData || "C:\\ProgramData", "WatsonRMMAgent", "agent.log"),
 };
+
+// Ensure log directory exists
+const logDir = path.dirname(CONFIG.logFile);
+if (!fs.existsSync(logDir)) {
+  try {
+    fs.mkdirSync(logDir, { recursive: true });
+  } catch (err) {
+    // Ignore if can't create
+  }
+}
+
+// Logging function (writes to file for service debugging)
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  
+  try {
+    fs.appendFileSync(CONFIG.logFile, logMessage);
+  } catch (err) {
+    // Silently fail - we can't log this error anywhere
+  }
+  
+  // Also try console if available
+  try {
+    console.log(logMessage);
+  } catch (err) {
+    // Silently fail
+  }
+}
 
 // Agent state
 let connection = null;
@@ -50,21 +82,29 @@ function getSystemInfo() {
 // Execute command
 function executeCommand(command) {
   return new Promise((resolve) => {
-    exec(command, { timeout: 60000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-      if (error) {
-        resolve({
-          success: false,
-          output: stderr || error.message,
-          exitCode: error.code || 1,
-        });
-      } else {
-        resolve({
-          success: true,
-          output: stdout,
-          exitCode: 0,
-        });
-      }
-    });
+    try {
+      exec(command, { timeout: 60000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+        if (error) {
+          resolve({
+            success: false,
+            output: stderr || error.message,
+            exitCode: error.code || 1,
+          });
+        } else {
+          resolve({
+            success: true,
+            output: stdout,
+            exitCode: 0,
+          });
+        }
+      });
+    } catch (err) {
+      resolve({
+        success: false,
+        output: err.message,
+        exitCode: 1,
+      });
+    }
   });
 }
 
@@ -74,7 +114,7 @@ async function captureScreen() {
     const imgBuffer = await screenshot({ format: "png" });
     return imgBuffer.toString("base64");
   } catch (error) {
-    console.error("Screen capture failed:", error.message);
+    log("Screen capture failed: " + error.message);
     return null;
   }
 }
@@ -91,13 +131,13 @@ function startScreenCapture() {
         try {
           await connection.invoke("ScreenCapture", os.hostname(), screenData);
         } catch (error) {
-          console.error("Failed to send screen capture:", error.message);
+          log("Failed to send screen capture: " + error.message);
         }
       }
     }
   }, CONFIG.screenCaptureIntervalMs);
   
-  console.log("Screen capture started");
+  log("Screen capture started");
 }
 
 // Stop screen streaming
@@ -107,91 +147,98 @@ function stopScreenCapture() {
     clearInterval(screenCaptureInterval);
     screenCaptureInterval = null;
   }
-  console.log("Screen capture stopped");
+  log("Screen capture stopped");
 }
 
 // Initialize SignalR connection
 async function initializeConnection() {
-  connection = new signalR.HubConnectionBuilder()
-    .withUrl(CONFIG.hubUrl)
-    .withAutomaticReconnect({
-      nextRetryDelayInMilliseconds: () => CONFIG.reconnectDelayMs,
-    })
-    .configureLogging(signalR.LogLevel.Information)
-    .build();
+  try {
+    connection = new signalR.HubConnectionBuilder()
+      .withUrl(CONFIG.hubUrl)
+      .withAutomaticReconnect({
+        nextRetryDelayInMilliseconds: () => CONFIG.reconnectDelayMs,
+      })
+      .configureLogging(signalR.LogLevel.Information)
+      .build();
 
-  // Handle connection events
-  connection.onreconnecting((error) => {
-    console.log("Reconnecting to hub...", error?.message);
-    isConnected = false;
-  });
+    // Handle connection events
+    connection.onreconnecting((error) => {
+      log("Reconnecting to hub... " + (error?.message || ""));
+      isConnected = false;
+    });
 
-  connection.onreconnected((connectionId) => {
-    console.log("Reconnected to hub with ID:", connectionId);
-    isConnected = true;
-    registerAgent();
-  });
+    connection.onreconnected((connectionId) => {
+      log("Reconnected to hub with ID: " + connectionId);
+      isConnected = true;
+      registerAgent();
+    });
 
-  connection.onclose((error) => {
-    console.log("Connection closed:", error?.message);
-    isConnected = false;
-    stopScreenCapture();
-    setTimeout(startConnection, CONFIG.reconnectDelayMs);
-  });
+    connection.onclose((error) => {
+      log("Connection closed: " + (error?.message || ""));
+      isConnected = false;
+      stopScreenCapture();
+      setTimeout(startConnection, CONFIG.reconnectDelayMs);
+    });
 
-  // Handle incoming commands
-  connection.on("ExecuteCommand", async (command) => {
-    console.log("Received command:", command);
-    const result = await executeCommand(command);
-    try {
-      await connection.invoke("CommandResult", os.hostname(), command, result);
-    } catch (error) {
-      console.error("Failed to send command result:", error.message);
-    }
-  });
-
-  // Handle screen capture requests
-  connection.on("StartScreenCapture", () => {
-    console.log("Starting screen capture...");
-    startScreenCapture();
-  });
-
-  connection.on("StopScreenCapture", () => {
-    console.log("Stopping screen capture...");
-    stopScreenCapture();
-  });
-
-  connection.on("CaptureScreenOnce", async () => {
-    console.log("Capturing single screenshot...");
-    const screenData = await captureScreen();
-    if (screenData) {
+    // Handle incoming commands
+    connection.on("ExecuteCommand", async (command) => {
+      log("Received command: " + command);
+      const result = await executeCommand(command);
       try {
-        await connection.invoke("ScreenCapture", os.hostname(), screenData);
+        await connection.invoke("CommandResult", os.hostname(), command, result);
       } catch (error) {
-        console.error("Failed to send screenshot:", error.message);
+        log("Failed to send command result: " + error.message);
       }
-    }
-  });
+    });
 
-  // Handle system info requests
-  connection.on("GetSystemInfo", async () => {
-    console.log("System info requested");
-    const sysInfo = getSystemInfo();
-    try {
-      await connection.invoke("SystemInfo", os.hostname(), sysInfo);
-    } catch (error) {
-      console.error("Failed to send system info:", error.message);
-    }
-  });
+    // Handle screen capture requests
+    connection.on("StartScreenCapture", () => {
+      log("Starting screen capture...");
+      startScreenCapture();
+    });
 
-  // Handle ping
-  connection.on("Ping", async () => {
-    try {
-      await connection.invoke("Pong", os.hostname());
-    } catch (error) {
-      console.error("Failed to send pong:", error.message);
-    }
-  });
+    connection.on("StopScreenCapture", () => {
+      log("Stopping screen capture...");
+      stopScreenCapture();
+    });
+
+    connection.on("CaptureScreenOnce", async () => {
+      log("Capturing single screenshot...");
+      const screenData = await captureScreen();
+      if (screenData) {
+        try {
+          await connection.invoke("ScreenCapture", os.hostname(), screenData);
+        } catch (error) {
+          log("Failed to send screenshot: " + error.message);
+        }
+      }
+    });
+
+    // Handle system info requests
+    connection.on("GetSystemInfo", async () => {
+      log("System info requested");
+      const sysInfo = getSystemInfo();
+      try {
+        await connection.invoke("SystemInfo", os.hostname(), sysInfo);
+      } catch (error) {
+        log("Failed to send system info: " + error.message);
+      }
+    });
+
+    // Handle ping
+    connection.on("Ping", async () => {
+      try {
+        await connection.invoke("Pong", os.hostname());
+      } catch (error) {
+        log("Failed to send pong: " + error.message);
+      }
+    });
+
+    log("SignalR connection initialized");
+  } catch (error) {
+    log("Failed to initialize connection: " + error.message);
+    throw error;
+  }
 }
 
 // Register agent with hub
@@ -199,9 +246,9 @@ async function registerAgent() {
   const sysInfo = getSystemInfo();
   try {
     await connection.invoke("RegisterAgent", sysInfo);
-    console.log("Agent registered successfully");
+    log("Agent registered successfully");
   } catch (error) {
-    console.error("Failed to register agent:", error.message);
+    log("Failed to register agent: " + error.message);
   }
 }
 
@@ -209,11 +256,11 @@ async function registerAgent() {
 async function startConnection() {
   try {
     await connection.start();
-    console.log("Connected to hub:", CONFIG.hubUrl);
+    log("Connected to hub: " + CONFIG.hubUrl);
     isConnected = true;
     await registerAgent();
   } catch (error) {
-    console.error("Failed to connect:", error.message);
+    log("Failed to connect: " + error.message);
     setTimeout(startConnection, CONFIG.reconnectDelayMs);
   }
 }
@@ -226,7 +273,7 @@ function startHeartbeat() {
         const sysInfo = getSystemInfo();
         await connection.invoke("Heartbeat", sysInfo);
       } catch (error) {
-        console.error("Heartbeat failed:", error.message);
+        log("Heartbeat failed: " + error.message);
       }
     }
   }, CONFIG.heartbeatIntervalMs);
@@ -234,18 +281,26 @@ function startHeartbeat() {
 
 // Main entry point
 async function main() {
-  console.log("Watson RMM Agent v1.0.0");
-  console.log("Hub URL:", CONFIG.hubUrl);
-  console.log("Hostname:", os.hostname());
+  log("Watson RMM Agent v1.0.0 started");
+  log("Hub URL: " + CONFIG.hubUrl);
+  log("Hostname: " + os.hostname());
+  log("Log file: " + CONFIG.logFile);
   
-  await initializeConnection();
-  await startConnection();
-  startHeartbeat();
+  try {
+    await initializeConnection();
+    await startConnection();
+    startHeartbeat();
+    log("Agent initialized and running");
+  } catch (error) {
+    log("Fatal error during startup: " + error.message);
+    // Don't exit - keep process running to avoid service restart loop
+    setTimeout(() => main(), 10000);
+  }
 }
 
 // Handle process termination
 process.on("SIGINT", () => {
-  console.log("Shutting down agent...");
+  log("Received SIGINT - shutting down agent...");
   stopScreenCapture();
   if (connection) {
     connection.stop();
@@ -254,7 +309,7 @@ process.on("SIGINT", () => {
 });
 
 process.on("SIGTERM", () => {
-  console.log("Shutting down agent...");
+  log("Received SIGTERM - shutting down agent...");
   stopScreenCapture();
   if (connection) {
     connection.stop();
@@ -264,8 +319,21 @@ process.on("SIGTERM", () => {
 
 // Keep process alive on errors
 process.on("uncaughtException", (error) => {
-  console.error("Uncaught exception:", error.message);
+  log("Uncaught exception: " + error.message);
+  // Don't exit - service will auto-restart
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  log("Unhandled rejection: " + reason);
+  // Don't exit - service will auto-restart
 });
 
 // Start agent
-main().catch(console.error);
+main().catch((error) => {
+  log("Failed to start agent: " + error.message);
+});
+
+// Keep the process alive
+setInterval(() => {
+  // Periodic check
+}, 60000);
