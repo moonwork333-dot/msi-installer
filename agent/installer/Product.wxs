@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  
+  <?define ProductName = "PENG RMM Agent" ?>
+  <?define ProductVersion = "1.0.0.0" ?>
+  <?define ProductManufacturer = "Watson Parts" ?>
+  <?define UpgradeCode = "12345678-1234-1234-1234-123456789012" ?>
+  
+  <Product Id="*" 
+           Name="$(var.ProductName)" 
+           Language="1033" 
+           Version="$(var.ProductVersion)" 
+           Manufacturer="$(var.ProductManufacturer)" 
+           UpgradeCode="$(var.UpgradeCode)">
+    
+    <Package InstallerVersion="500" 
+             Compressed="yes" 
+             InstallScope="perMachine"
+             Description="$(var.ProductName) Installer"
+             Comments="PENG RMM Agent for remote monitoring and management" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Directory Structure -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="PENG RMM Agent" />
+      </Directory>
+    </Directory>
+
+    <!-- Product Components -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Main executable - also used as service -->
+      <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+        <File Id="AgentExe" 
+              Source="$(var.SourceDir)\peng-rmm-agent.exe" 
+              KeyPath="yes" />
+        
+        <!-- Install as Windows Service -->
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Name="PengRMMAgent"
+                        DisplayName="PENG RMM Agent"
+                        Description="Remote monitoring and management agent"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal" />
+        
+        <ServiceControl Id="ServiceControl"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Name="PengRMMAgent"
+                        Wait="yes" />
+      </Component>
+      
+      <!-- Config file -->
+      <Component Id="ConfigFile" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
+        <File Id="ConfigJson" 
+              Source="$(var.SourceDir)\config.json" 
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="PENG RMM Agent" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <!-- UI - Minimal installer -->
+    <UIRef Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\license.rtf" />
+
+  </Product>
+</Wix>
