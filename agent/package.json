@@ -1,7 +1,7 @@
 {
-  "name": "peng-rmm-agent",
+  "name": "watson-rmm-agent",
   "version": "1.0.0",
-  "description": "PENG RMM - Remote monitoring agent with screen streaming and control",
+  "description": "Watson RMM - Remote monitoring agent with screen streaming and command execution",
   "main": "service.js",
   "scripts": {
     "start": "node service.js",
@@ -11,13 +11,12 @@
     "remote-monitoring",
     "rmm",
     "agent",
-    "peng"
+    "watson"
   ],
   "author": "Watson Parts",
   "license": "Proprietary",
   "dependencies": {
     "@microsoft/signalr": "^8.0.0",
-    "robotjs": "^0.6.0",
     "screenshot-desktop": "^1.15.0"
   },
   "engines": {
