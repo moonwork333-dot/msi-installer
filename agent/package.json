@@ -17,6 +17,7 @@
   "license": "Proprietary",
   "dependencies": {
     "@microsoft/signalr": "^8.0.0",
+    "robotjs": "^0.6.0",
     "screenshot-desktop": "^1.15.0"
   },
   "engines": {
