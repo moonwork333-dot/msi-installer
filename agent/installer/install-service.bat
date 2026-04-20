@@ -15,9 +15,10 @@ echo Service path: %EXE_PATH%
 REM Delete service if it already exists
 sc query %SERVICE_NAME% >nul 2>&1
 if not errorlevel 1 (
-  echo Service already exists. Stopping...
+  echo Service already exists. Stopping and removing...
   net stop %SERVICE_NAME% >nul 2>&1
   sc delete %SERVICE_NAME% >nul 2>&1
+  timeout /t 1 /nobreak >nul
 )
 
 REM Create new service
@@ -30,14 +31,15 @@ if errorlevel 1 (
 REM Set service description
 sc description %SERVICE_NAME% "Remote monitoring and management agent for Watson RMM"
 
-REM Set recovery options
+REM Set recovery options - restart service on failure
 sc failure %SERVICE_NAME% reset= 60 actions= restart/5000
 
-REM Start the service
+REM Start the service immediately (don't wait for reboot)
+echo Starting service...
 net start %SERVICE_NAME%
 if errorlevel 1 (
-  echo ERROR: Failed to start service
-  exit /b 1
+  echo WARNING: Failed to start service immediately, but service is installed and will start on next reboot
+  exit /b 0
 )
 
 echo Service installed and started successfully
