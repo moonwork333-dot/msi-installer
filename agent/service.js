@@ -1,33 +1,54 @@
+// CRITICAL: Catch all startup errors before anything else
+try {
+  const fs = require("fs");
+  const path = require("path");
+  
+  // Create log directory immediately
+  const logDir = path.join(process.env.ProgramData || "C:\\ProgramData", "WatsonRMMAgent");
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+  
+  // Write startup marker immediately
+  const startupLogPath = path.join(logDir, "startup.log");
+  fs.writeFileSync(startupLogPath, `[${new Date().toISOString()}] ===== SERVICE STARTING =====\n`);
+  
+  // Write Node.js version
+  fs.appendFileSync(startupLogPath, `[${new Date().toISOString()}] Node version: ${process.version}\n`);
+  fs.appendFileSync(startupLogPath, `[${new Date().toISOString()}] Platform: ${process.platform}\n`);
+  fs.appendFileSync(startupLogPath, `[${new Date().toISOString()}] CWD: ${process.cwd()}\n`);
+  
+} catch (err) {
+  // If we can't even write logs, write to a fallback location
+  try {
+    require("fs").appendFileSync("C:\\watson_startup_error.log", `[${new Date().toISOString()}] STARTUP ERROR: ${err.message}\n${err.stack}\n`);
+  } catch (e) {
+    // Completely silent fail - nothing we can do
+  }
+}
+
+// Now require the rest
 const signalR = require("@microsoft/signalr");
 const { HttpTransportType } = require("@microsoft/signalr");
 const os = require("os");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const screenshot = require("screenshot-desktop");
 
-// CRITICAL: Windows service startup marker - write immediately to prove process started
+// Configuration
 const logDir = path.join(process.env.ProgramData || "C:\\ProgramData", "WatsonRMMAgent");
-try {
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+const startupLogPath = path.join(logDir, "startup.log");
+
+function appendLog(msg) {
+  try {
+    fs.appendFileSync(startupLogPath, `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (err) {
+    // Ignore
   }
-  fs.writeFileSync(path.join(logDir, "startup.log"), `[${new Date().toISOString()}] Service process started\n`);
-} catch (err) {
-  // Ignore startup log errors
 }
 
-// Defer screenshot-desktop import until needed
-let screenshot = null;
-function getScreenshot() {
-  if (!screenshot) {
-    try {
-      screenshot = require("screenshot-desktop");
-    } catch (err) {
-      return null;
-    }
-  }
-  return screenshot;
-}
+appendLog("All requires completed successfully");
 
 // Generate unique agent ID
 const agentId = `agent-${os.hostname()}-${Date.now()}`;
@@ -42,31 +63,30 @@ const CONFIG = {
   agentId: agentId,
 };
 
+appendLog("CONFIG created: " + JSON.stringify(CONFIG));
+
 // Ensure log directory exists
-const logDir = path.dirname(CONFIG.logFile);
 if (!fs.existsSync(logDir)) {
   try {
     fs.mkdirSync(logDir, { recursive: true });
   } catch (err) {
-    // Ignore if can't create
+    appendLog("Failed to create log dir: " + err.message);
   }
 }
 
-// Logging function - CRITICAL: flush to disk immediately for service debugging
+// Logging function
 function log(message) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}\n`;
   
   try {
-    // Append to main log
     fs.appendFileSync(CONFIG.logFile, logMessage);
   } catch (err) {
     // Ignore
   }
   
   try {
-    // Also append to startup log for debugging service issues
-    fs.appendFileSync(path.join(logDir, "startup.log"), logMessage);
+    fs.appendFileSync(startupLogPath, logMessage);
   } catch (err) {
     // Ignore
   }
@@ -78,11 +98,15 @@ function log(message) {
   }
 }
 
+appendLog("Logging function defined");
+
 // Agent state
 let connection = null;
 let isConnected = false;
 let screenCaptureEnabled = false;
 let screenCaptureInterval = null;
+
+appendLog("Agent state initialized");
 
 // Get system information
 function getSystemInfo() {
@@ -146,12 +170,7 @@ function executeCommand(command) {
 // Capture screen
 async function captureScreen() {
   try {
-    const shot = getScreenshot();
-    if (!shot) {
-      log("Screenshot module not available");
-      return null;
-    }
-    const imgBuffer = await shot({ format: "png" });
+    const imgBuffer = await screenshot({ format: "png" });
     return imgBuffer.toString("base64");
   } catch (error) {
     log("Screen capture failed: " + error.message);
@@ -330,6 +349,7 @@ function startHeartbeat() {
 
 // Main entry point
 async function main() {
+  appendLog("main() called");
   log("Watson RMM Agent v1.0.0 started");
   log("Hub URL: " + CONFIG.hubUrl);
   log("Hostname: " + os.hostname());
@@ -351,11 +371,14 @@ async function main() {
     log("Heartbeat started");
     
     log("Agent initialized and running - entering main loop");
+    appendLog("Agent successfully initialized and running");
   } catch (error) {
-    log("Fatal error during startup: " + error.message + " | " + error.stack);
+    log("Fatal error during startup: " + error.message);
+    appendLog("Fatal error: " + error.message + " | " + error.stack);
     // Don't exit - retry after delay
     setTimeout(() => main().catch((err) => {
       log("Retry failed: " + err.message);
+      appendLog("Retry failed: " + err.message);
     }), 5000);
   }
 }
@@ -363,6 +386,7 @@ async function main() {
 // Handle process termination - GRACEFULLY for Windows service
 process.on("SIGINT", () => {
   log("Received SIGINT - shutting down agent...");
+  appendLog("Received SIGINT");
   stopScreenCapture();
   if (connection) {
     connection.stop().catch(() => {});
@@ -374,6 +398,7 @@ process.on("SIGINT", () => {
 
 process.on("SIGTERM", () => {
   log("Received SIGTERM - shutting down agent...");
+  appendLog("Received SIGTERM");
   stopScreenCapture();
   if (connection) {
     connection.stop().catch(() => {});
@@ -386,33 +411,36 @@ process.on("SIGTERM", () => {
 // Keep process alive on errors - CRITICAL for Windows service
 process.on("uncaughtException", (error) => {
   log("Uncaught exception: " + error.message);
+  appendLog("Uncaught exception: " + error.message + " | " + error.stack);
   // Don't exit - keep the service running
 });
 
 process.on("unhandledRejection", (reason) => {
   log("Unhandled rejection: " + reason);
+  appendLog("Unhandled rejection: " + reason);
   // Don't exit - keep the service running
 });
 
 // Start agent with immediate logging
-log("[STARTUP] Calling main()");
+appendLog("About to call main()");
 main().catch((error) => {
-  log("[STARTUP-ERROR] Failed to start agent: " + error.message + " | " + error.stack);
+  log("Failed to start agent: " + error.message);
+  appendLog("Failed to start agent: " + error.message + " | " + error.stack);
   // Don't exit - wait and retry
   setTimeout(() => main().catch(() => {
-    log("[STARTUP-ERROR] Retry also failed");
+    log("Retry failed");
+    appendLog("Retry failed");
   }), 5000);
 });
 
 // Keep the process alive - MUST NOT EXIT
-// Windows service manager requires the process to stay alive
 setInterval(() => {
   if (!isConnected) {
-    log("[KEEPALIVE] Process alive, waiting for connection...");
+    // Silently keep alive
   }
 }, 30000);
 
-// Final safety net - ensure process never exits
+// Final safety net
 process.on("exit", (code) => {
-  log("[EXIT] Process exiting with code: " + code);
+  appendLog("Process exiting with code: " + code);
 });
