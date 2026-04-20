@@ -48,32 +48,38 @@
     </ComponentGroup>
 
     <!-- Custom Actions to install/remove service using the EXE itself -->
-    <!-- Immediate action to set property with install folder path -->
-    <CustomAction Id="SetInstallFolderProp" 
-                  Property="INSTALLFOLDERPROP"
-                  Value="[INSTALLFOLDER]"
+    <!-- Immediate action to set property with full path to exe -->
+    <CustomAction Id="SetInstallCommand" 
+                  Property="InstallServiceCommand"
+                  Value="&quot;[INSTALLFOLDER]peng-rmm-agent.exe&quot; --install"
+                  Execute="immediate" />
+    
+    <CustomAction Id="SetUninstallCommand" 
+                  Property="UninstallServiceCommand"
+                  Value="&quot;[INSTALLFOLDER]peng-rmm-agent.exe&quot; --uninstall"
                   Execute="immediate" />
     
     <!-- Deferred action to install service -->
     <CustomAction Id="InstallService" 
-                  BinPath="[INSTALLFOLDERPROP]peng-rmm-agent.exe"
-                  ExeCommand="--install"
+                  Property="InstallServiceCommand"
+                  ExeCommand=""
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
     
     <!-- Deferred action to uninstall service -->
     <CustomAction Id="UninstallService" 
-                  BinPath="[INSTALLFOLDERPROP]peng-rmm-agent.exe"
-                  ExeCommand="--uninstall"
+                  Property="UninstallServiceCommand"
+                  ExeCommand=""
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="SetInstallFolderProp" Before="InstallFinalize" />
+      <Custom Action="SetInstallCommand" Before="InstallService" />
+      <Custom Action="SetUninstallCommand" Before="UninstallService" />
       <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
-      <Custom Action="InstallService" Before="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="InstallService" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
