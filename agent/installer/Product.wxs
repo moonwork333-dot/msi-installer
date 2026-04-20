@@ -48,23 +48,32 @@
     </ComponentGroup>
 
     <!-- Custom Actions to install/remove service using the EXE itself -->
+    <!-- Immediate action to set property with install folder path -->
+    <CustomAction Id="SetInstallFolderProp" 
+                  Property="INSTALLFOLDERPROP"
+                  Value="[INSTALLFOLDER]"
+                  Execute="immediate" />
+    
+    <!-- Deferred action to install service -->
     <CustomAction Id="InstallService" 
-                  Directory="INSTALLFOLDER"
-                  ExeCommand="peng-rmm-agent.exe --install"
+                  BinPath="[INSTALLFOLDERPROP]peng-rmm-agent.exe"
+                  ExeCommand="--install"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
     
+    <!-- Deferred action to uninstall service -->
     <CustomAction Id="UninstallService" 
-                  Directory="INSTALLFOLDER"
-                  ExeCommand="peng-rmm-agent.exe --uninstall"
+                  BinPath="[INSTALLFOLDERPROP]peng-rmm-agent.exe"
+                  ExeCommand="--uninstall"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
 
     <InstallExecuteSequence>
+      <Custom Action="SetInstallFolderProp" Before="InstallFinalize" />
       <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
-      <Custom Action="InstallService" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="InstallService" Before="InstallFinalize">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
