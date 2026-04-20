@@ -1,4 +1,5 @@
 const signalR = require("@microsoft/signalr");
+const { HttpTransportType } = require("@microsoft/signalr");
 const os = require("os");
 const { exec } = require("child_process");
 const fs = require("fs");
@@ -17,13 +18,17 @@ function getScreenshot() {
   return screenshot;
 }
 
+// Generate unique agent ID
+const agentId = `agent-${os.hostname()}-${Date.now()}`;
+
 // Configuration
 const CONFIG = {
   hubUrl: process.env.HUB_URL || "https://watson-parts.com/agenthub",
   reconnectDelayMs: 5000,
-  heartbeatIntervalMs: 30000,
+  heartbeatIntervalMs: 15000,
   screenCaptureIntervalMs: 1000,
   logFile: path.join(process.env.ProgramData || "C:\\ProgramData", "WatsonRMMAgent", "agent.log"),
+  agentId: agentId,
 };
 
 // Ensure log directory exists
@@ -171,12 +176,21 @@ function stopScreenCapture() {
 async function initializeConnection() {
   try {
     connection = new signalR.HubConnectionBuilder()
-      .withUrl(CONFIG.hubUrl)
-      .withAutomaticReconnect({
-        nextRetryDelayInMilliseconds: () => CONFIG.reconnectDelayMs,
+      .withUrl(CONFIG.hubUrl, {
+        skipNegotiation: false,
+        transport: HttpTransportType.WebSockets,
+        withCredentials: false,
+        headers: {
+          "x-client-type": "agent",
+          "x-client-id": CONFIG.agentId
+        }
       })
+      .withAutomaticReconnect([0, 0, 10000])
       .configureLogging(signalR.LogLevel.Information)
       .build();
+    
+    connection.serverTimeoutInMilliseconds = 40000;
+    connection.keepAliveInterval = 15000;
 
     // Handle connection events
     connection.onreconnecting((error) => {
