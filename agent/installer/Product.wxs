@@ -54,6 +54,14 @@
                         Remove="uninstall"
                         Name="WatsonRMMAgent"
                         Wait="yes" />
+        
+        <!-- Allow service to interact with desktop for screenshot capture -->
+        <RegistryValue Root="HKLM" 
+                       Key="SYSTEM\CurrentControlSet\Services\WatsonRMMAgent" 
+                       Name="Type" 
+                       Type="integer" 
+                       Value="16" 
+                       Action="write" />
       </Component>
       
       <!-- Config file -->
