@@ -1,0 +1,20 @@
+{
+  "hubUrl": "https://watson-parts.com/agenthub",
+  "agentId": null,
+  "logging": {
+    "level": "info",
+    "maxFileSize": 10485760,
+    "maxFiles": 5
+  },
+  "screenCapture": {
+    "quality": 80,
+    "maxWidth": 1920,
+    "maxHeight": 1080,
+    "format": "jpeg"
+  },
+  "polling": {
+    "commandCheckInterval": 2000,
+    "heartbeatInterval": 30000,
+    "screenFrameInterval": 100
+  }
+}
