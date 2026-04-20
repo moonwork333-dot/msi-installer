@@ -17,7 +17,7 @@
              Compressed="yes" 
              InstallScope="perMachine"
              Description="$(var.ProductName) Installer"
-             Comments="PENG RMM Agent for remote monitoring and management" />
+             Comments="Watson RMM Agent for remote monitoring and management" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     
@@ -26,42 +26,17 @@
     <!-- Directory Structure -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLFOLDER" Name="PENG RMM Agent" />
+        <Directory Id="INSTALLFOLDER" Name="Watson RMM Agent" />
       </Directory>
     </Directory>
 
     <!-- Product Components -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <!-- Main executable - also used as service -->
+      <!-- Main executable -->
       <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
         <File Id="AgentExe" 
               Source="$(var.SourceDir)\peng-rmm-agent.exe" 
               KeyPath="yes" />
-        
-        <!-- Install as Windows Service -->
-        <ServiceInstall Id="ServiceInstaller"
-                        Type="ownProcess"
-                        Name="WatsonRMMAgent"
-                        DisplayName="Watson RMM Agent"
-                        Description="Remote monitoring and management agent"
-                        Start="auto"
-                        Account="LocalSystem"
-                        ErrorControl="normal" />
-        
-        <ServiceControl Id="ServiceControl"
-                        Start="install"
-                        Stop="both"
-                        Remove="uninstall"
-                        Name="WatsonRMMAgent"
-                        Wait="no" />
-        
-        <!-- Allow service to interact with desktop for screenshot capture -->
-        <RegistryValue Root="HKLM" 
-                       Key="SYSTEM\CurrentControlSet\Services\WatsonRMMAgent" 
-                       Name="Type" 
-                       Type="integer" 
-                       Value="16" 
-                       Action="write" />
       </Component>
       
       <!-- Config file -->
@@ -72,8 +47,28 @@
       </Component>
     </ComponentGroup>
 
+    <!-- Custom Actions to install/remove service using the EXE itself -->
+    <CustomAction Id="InstallService" 
+                  FileKey="AgentExe"
+                  ExeCommand="--install"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+    
+    <CustomAction Id="UninstallService" 
+                  FileKey="AgentExe"
+                  ExeCommand="--uninstall"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
+      <Custom Action="InstallService" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
+
     <!-- Features -->
-    <Feature Id="ProductFeature" Title="PENG RMM Agent" Level="1">
+    <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
 
