@@ -1,0 +1,25 @@
+{
+  "name": "peng-rmm-agent",
+  "version": "1.0.0",
+  "description": "PENG RMM - Remote monitoring agent with screen streaming and control",
+  "main": "service.js",
+  "scripts": {
+    "start": "node service.js",
+    "build": "pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe"
+  },
+  "keywords": [
+    "remote-monitoring",
+    "rmm",
+    "agent",
+    "peng"
+  ],
+  "author": "Watson Parts",
+  "license": "Proprietary",
+  "dependencies": {
+    "@microsoft/signalr": "^8.0.0",
+    "screenshot-desktop": "^1.15.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
