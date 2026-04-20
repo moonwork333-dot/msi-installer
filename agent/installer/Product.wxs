@@ -45,39 +45,42 @@
               Source="$(var.SourceDir)\config.json" 
               KeyPath="yes" />
       </Component>
+
+      <!-- Install service batch file -->
+      <Component Id="InstallBatchFile" Guid="D4E5F6A7-B8C9-0123-DEFG-456789012345">
+        <File Id="InstallBat" 
+              Source="$(var.SourceDir)\install-service.bat" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Uninstall service batch file -->
+      <Component Id="UninstallBatchFile" Guid="E5F6A7B8-C9D0-1234-EFG-567890123456">
+        <File Id="UninstallBat" 
+              Source="$(var.SourceDir)\uninstall-service.bat" 
+              KeyPath="yes" />
+      </Component>
     </ComponentGroup>
 
-    <!-- Custom Actions to install/remove service using the EXE itself -->
-    <!-- Immediate action to set property with full path to exe -->
-    <CustomAction Id="SetInstallCommand" 
-                  Property="InstallServiceCommand"
-                  Value="&quot;[INSTALLFOLDER]peng-rmm-agent.exe&quot; --install"
-                  Execute="immediate" />
-    
-    <CustomAction Id="SetUninstallCommand" 
-                  Property="UninstallServiceCommand"
-                  Value="&quot;[INSTALLFOLDER]peng-rmm-agent.exe&quot; --uninstall"
-                  Execute="immediate" />
-    
-    <!-- Deferred action to install service -->
+    <!-- Custom Actions to install/remove service using native sc.exe -->
+    <!-- Install service via batch file (Type 2 = executable) -->
     <CustomAction Id="InstallService" 
-                  Property="InstallServiceCommand"
-                  ExeCommand=""
+                  Type="2"
+                  ExeCommand="install-service.bat"
+                  WorkingDirectory="INSTALLFOLDER"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
     
-    <!-- Deferred action to uninstall service -->
+    <!-- Uninstall service via batch file -->
     <CustomAction Id="UninstallService" 
-                  Property="UninstallServiceCommand"
-                  ExeCommand=""
+                  Type="2"
+                  ExeCommand="uninstall-service.bat"
+                  WorkingDirectory="INSTALLFOLDER"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="SetInstallCommand" Before="InstallService" />
-      <Custom Action="SetUninstallCommand" Before="UninstallService" />
       <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
       <Custom Action="InstallService" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
