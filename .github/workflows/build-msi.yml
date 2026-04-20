@@ -1,4 +1,4 @@
-name: Build PENG RMM Agent MSI
+name: Build Watson RMM Agent MSI
 
 on:
   push:
@@ -30,10 +30,10 @@ jobs:
           Write-Host "Installing dependencies..."
           Set-Location "agent"
           npm install
-          npm install -g pkg
+          npm install pkg
           
           Write-Host "Compiling service.js to standalone exe..."
-          pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe
+          npx pkg service.js --targets node18-win-x64 --output peng-rmm-agent.exe
           
           if (-not (Test-Path "peng-rmm-agent.exe")) {
             Write-Host "ERROR: peng-rmm-agent.exe not created"
@@ -85,7 +85,7 @@ jobs:
           
           echo Running light.exe with WixUIExtension...
           if not exist "..\dist" mkdir ..\dist
-          light.exe -ext WixUIExtension -out ..\dist\PENG-RMM-Agent-1.0.0.0.msi -sw1076 Product.wixobj
+          light.exe -ext WixUIExtension -out ..\dist\Watson-RMM-Agent-1.0.0.msi -sw1076 Product.wixobj
           if errorlevel 1 (
             echo ERROR: light failed
             exit /b 1
@@ -100,7 +100,7 @@ jobs:
       - name: Validate MSI
         shell: powershell
         run: |
-          $msiPath = "agent\dist\PENG-RMM-Agent-1.0.0.0.msi"
+          $msiPath = "agent\dist\Watson-RMM-Agent-1.0.0.msi"
           
           if (Test-Path $msiPath) {
             $file = Get-Item $msiPath
@@ -125,14 +125,14 @@ jobs:
       - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:
-          name: PENG-RMM-Agent-MSI
-          path: agent/dist/PENG-RMM-Agent-1.0.0.0.msi
+          name: Watson-RMM-Agent-MSI
+          path: agent/dist/Watson-RMM-Agent-1.0.0.msi
           retention-days: 30
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: PENG-RMM-Agent-EXE
+          name: Watson-RMM-Agent-EXE
           path: agent/peng-rmm-agent.exe
           retention-days: 30
 
@@ -141,7 +141,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            agent/dist/PENG-RMM-Agent-1.0.0.0.msi
+            agent/dist/Watson-RMM-Agent-1.0.0.msi
             agent/peng-rmm-agent.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
