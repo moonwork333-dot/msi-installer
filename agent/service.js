@@ -1,9 +1,21 @@
 const signalR = require("@microsoft/signalr");
 const os = require("os");
 const { exec } = require("child_process");
-const screenshot = require("screenshot-desktop");
 const fs = require("fs");
 const path = require("path");
+
+// Defer screenshot-desktop import until needed (may not be available in service context)
+let screenshot = null;
+function getScreenshot() {
+  if (!screenshot) {
+    try {
+      screenshot = require("screenshot-desktop");
+    } catch (err) {
+      return null;
+    }
+  }
+  return screenshot;
+}
 
 // Configuration
 const CONFIG = {
@@ -111,7 +123,12 @@ function executeCommand(command) {
 // Capture screen
 async function captureScreen() {
   try {
-    const imgBuffer = await screenshot({ format: "png" });
+    const shot = getScreenshot();
+    if (!shot) {
+      log("Screenshot module not available");
+      return null;
+    }
+    const imgBuffer = await shot({ format: "png" });
     return imgBuffer.toString("base64");
   } catch (error) {
     log("Screen capture failed: " + error.message);
