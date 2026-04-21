@@ -1,4 +1,4 @@
-name: Build Watson RMM Agent and MSI Installer
+name: Build Watson RMM Agent Installer
 
 on:
   push:
@@ -24,88 +24,37 @@ jobs:
         working-directory: agent
         run: npm install
       
-      - name: Install pkg (Node.js to EXE compiler)
+      - name: Install pkg
         run: npm install -g pkg
       
       - name: Compile agent to EXE
         working-directory: agent
         run: |
           pkg service.js --targets win-x64 --output peng-rmm-agent.exe
-          echo EXE created successfully
+          echo Agent compiled successfully
       
-      - name: Copy files to installer directory
+      - name: Copy files to staging
         shell: cmd
         run: |
-          echo Copying compiled files...
-          copy agent\peng-rmm-agent.exe agent\installer\
-          copy agent\config.json agent\installer\
-          echo Files copied
+          mkdir installer_staging
+          copy agent\peng-rmm-agent.exe installer_staging\
+          copy agent\config.json installer_staging\
+          copy agent\installer\nssm.exe installer_staging\
+          copy agent\installer\setup.bat installer_staging\
+          copy agent\installer\install-service.bat installer_staging\
+          copy agent\installer\uninstall-service.bat installer_staging\
+          copy agent\installer\license.rtf installer_staging\
+          copy agent\installer\WatsonRMMAgent-Installer.bat installer_staging\
+          dir installer_staging
       
-      - name: Verify all files exist
-        shell: cmd
-        working-directory: agent/installer
+      - name: Create installer ZIP
+        shell: pwsh
         run: |
-          echo Verifying all required files:
-          for %%F in (peng-rmm-agent.exe config.json nssm.exe setup.bat install-service.bat uninstall-service.bat license.rtf) do (
-            if not exist %%F (
-              echo ERROR: %%F missing
-              exit /b 1
-            )
-            echo OK: %%F
-          )
+          Compress-Archive -Path installer_staging\* -DestinationPath WatsonRMMAgent-Installer.zip -Force
+          Get-Item WatsonRMMAgent-Installer.zip | Select-Object FullName, Length
       
-      - name: Generate files.wxs with heat.exe
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          echo Generating files.wxs with heat.exe...
-          heat dir . -o files.wxs -ag -var var.SourceDir -cg ProductFiles -dr INSTALLFOLDER -srd
-          if errorlevel 1 (
-            echo ERROR: heat.exe failed
-            exit /b 1
-          )
-          echo files.wxs generated successfully
-          type files.wxs
-      
-      - name: Compile WiX
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          echo Cleaning...
-          if exist obj rmdir /s /q obj
-          echo Compiling Product.wxs and files.wxs...
-          candle.exe Product.wxs files.wxs -out obj\ -dSourceDir=.
-          if errorlevel 1 (
-            echo ERROR: candle.exe failed
-            exit /b 1
-          )
-          echo Compilation successful
-      
-      - name: Link MSI
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          echo Linking MSI...
-          light.exe -out WatsonRMMAgent.msi obj\Product.wixobj obj\files.wixobj -ext WixUIExtension
-          if errorlevel 1 (
-            echo ERROR: light.exe failed
-            exit /b 1
-          )
-          echo MSI linking successful
-      
-      - name: Verify MSI
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          if not exist WatsonRMMAgent.msi (
-            echo ERROR: MSI not created
-            exit /b 1
-          )
-          echo MSI created successfully:
-          dir WatsonRMMAgent.msi
-      
-      - name: Upload artifact
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: WatsonRMMAgent-msi
-          path: agent/installer/WatsonRMMAgent.msi
+          name: WatsonRMMAgent-Installer
+          path: WatsonRMMAgent-Installer.zip
