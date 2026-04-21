@@ -25,11 +25,12 @@ if not errorlevel 1 (
 )
 
 REM Create new service pointing to VBS wrapper
-REM Important: Do NOT put quotes in variable definitions - add them only in the command
-sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
+REM Important: Pass the installation directory as an argument to VBS
+REM This ensures the VBS knows where to find the EXE when running from C:\Windows\system32
+sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\" \"%INSTALL_DIR:~0,-1%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
 if errorlevel 1 (
   echo ERROR: Failed to create service
-  echo Attempted command: sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
+  echo Attempted command: sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\" \"%INSTALL_DIR:~0,-1%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
   exit /b 1
 )
 
