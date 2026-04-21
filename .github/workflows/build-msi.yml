@@ -15,58 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download NSSM
-        shell: pwsh
-        run: |
-          $NssmVersion = "2.26"
-          $NssmUrl = "https://nssm.cc/release/nssm-$NssmVersion.zip"
-          $NssmZip = "nssm-$NssmVersion.zip"
-          $NssmDir = "nssm-extract"
-          $InstallerDir = "agent/installer"
-          $MaxRetries = 3
-          $RetryCount = 0
-          $Downloaded = $false
-          
-          while (-not $Downloaded -and $RetryCount -lt $MaxRetries) {
-            try {
-              Write-Host "Downloading NSSM $NssmVersion from $NssmUrl (Attempt $($RetryCount + 1)/$MaxRetries)"
-              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-              (New-Object System.Net.WebClient).DownloadFile($NssmUrl, $NssmZip)
-              $Downloaded = $true
-              Write-Host "Download successful"
-            } catch {
-              $RetryCount++
-              if ($RetryCount -lt $MaxRetries) {
-                Write-Host "Download failed: $_"
-                Write-Host "Retrying in 10 seconds..."
-                Start-Sleep -Seconds 10
-              } else {
-                throw "Failed to download NSSM after $MaxRetries attempts: $_"
-              }
-            }
-          }
-          
-          Write-Host "Extracting NSSM"
-          Expand-Archive -Path $NssmZip -DestinationPath $NssmDir -Force
-          
-          Write-Host "Copying nssm.exe to installer directory"
-          if (Test-Path "$NssmDir/nssm-$NssmVersion/win64/nssm.exe") {
-            Copy-Item "$NssmDir/nssm-$NssmVersion/win64/nssm.exe" "$InstallerDir/nssm.exe"
-            Write-Host "Copied 64-bit nssm.exe"
-          } elseif (Test-Path "$NssmDir/nssm-$NssmVersion/win32/nssm.exe") {
-            Copy-Item "$NssmDir/nssm-$NssmVersion/win32/nssm.exe" "$InstallerDir/nssm.exe"
-            Write-Host "Copied 32-bit nssm.exe"
-          } else {
-            throw "Could not find nssm.exe in extracted files"
-          }
-          
-          Write-Host "Cleaning up temporary files"
-          Remove-Item $NssmZip -Force
-          Remove-Item $NssmDir -Recurse -Force
-          
-          Write-Host "NSSM ready at $InstallerDir/nssm.exe"
-      
-      - name: Verify nssm.exe exists
+      - name: Verify NSSM is present
         shell: cmd
         run: dir "agent\installer\nssm.exe"
       
