@@ -5,8 +5,8 @@ REM This script is called by WiX during MSI installation
 setlocal enabledelayedexpansion
 
 set INSTALL_DIR=%~dp0
-set EXE_PATH="%INSTALL_DIR%peng-rmm-agent.exe"
-set VBS_WRAPPER="%INSTALL_DIR%service-wrapper.vbs"
+set EXE_PATH=%INSTALL_DIR%peng-rmm-agent.exe
+set VBS_WRAPPER=%INSTALL_DIR%service-wrapper.vbs
 set SERVICE_NAME=WatsonRMMAgent
 set SERVICE_DISPLAY=Watson RMM Agent
 
@@ -25,14 +25,16 @@ if not errorlevel 1 (
 )
 
 REM Create new service pointing to VBS wrapper
-REM The VBS wrapper will launch and monitor the Node.js process
-REM Important: binPath needs proper escaping for paths with spaces
+REM Important: Do NOT put quotes in variable definitions - add them only in the command
 sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
 if errorlevel 1 (
   echo ERROR: Failed to create service
   echo Attempted command: sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
   exit /b 1
 )
+
+echo Service created successfully
+timeout /t 1 /nobreak >nul
 
 REM Set service description
 sc description %SERVICE_NAME% "Remote monitoring and management agent for Watson RMM"
@@ -48,17 +50,19 @@ if errorlevel 1 (
   echo WARNING: Could not start service immediately
   echo The service is configured to start automatically on the next system reboot
   timeout /t 2 /nobreak >nul
+) else (
+  echo Service started successfully
 )
 
 REM Verify service is running
-timeout /t 3 /nobreak >nul
+timeout /t 2 /nobreak >nul
 sc query %SERVICE_NAME% | find "RUNNING" >nul
 if errorlevel 1 (
   echo WARNING: Service may not be running yet
   echo Checking logs at: C:\ProgramData\WatsonRMMAgent\agent.log
   echo VBS Wrapper log: C:\ProgramData\WatsonRMMAgent\service-wrapper.log
 ) else (
-  echo Service is running successfully
+  echo Service is running successfully!
 )
 
 exit /b 0
