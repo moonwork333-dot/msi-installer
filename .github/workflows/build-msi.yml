@@ -70,7 +70,7 @@ jobs:
         working-directory: agent/installer
         run: |
           echo Linking MSI with file embedding...
-          light.exe -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension -dSourceDir=.
+          light.exe -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension -b . -dSourceDir=.
           if errorlevel 1 exit /b 1
           echo MSI linked successfully
       
