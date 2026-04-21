@@ -83,23 +83,14 @@
     </DirectoryRef>
 
     <!-- Custom Actions -->
-    <CustomAction Id="SetupService" 
-                  ExeCommand="cmd.exe /c setup.bat"
-                  Directory="INSTALLFOLDER"
-                  Execute="deferred"
-                  Return="ignore"
-                  Impersonate="no" />
-    
-    <CustomAction Id="UninstallService" 
-                  ExeCommand="cmd.exe /c uninstall-service.bat"
-                  Directory="INSTALLFOLDER"
+    <CustomAction Id="RunSetupBatch" 
+                  ExeCommand="&quot;[INSTALLFOLDER]setup.bat&quot;"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
-      <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="RunSetupBatch" After="InstallFinalize">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
