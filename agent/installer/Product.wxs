@@ -46,10 +46,10 @@
               KeyPath="yes" />
       </Component>
 
-      <!-- NSSM (Non-Sucking Service Manager) -->
-      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
-        <File Id="NssmExe" 
-              Source="$(var.SourceDir)\nssm.exe" 
+      <!-- Setup script (downloads NSSM automatically) -->
+      <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
+        <File Id="SetupBat" 
+              Source="$(var.SourceDir)\setup.bat" 
               KeyPath="yes" />
       </Component>
 
@@ -69,9 +69,9 @@
     </ComponentGroup>
 
     <!-- Custom Actions to install/remove service using batch files -->
-    <!-- Install service batch file via cmd.exe -->
-    <CustomAction Id="InstallService" 
-                  ExeCommand="cmd.exe /c install-service.bat"
+    <!-- Setup script (downloads NSSM and installs service) -->
+    <CustomAction Id="SetupService" 
+                  ExeCommand="cmd.exe /c setup.bat"
                   Directory="INSTALLFOLDER"
                   Execute="deferred"
                   Return="ignore"
@@ -87,7 +87,7 @@
 
     <InstallExecuteSequence>
       <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
-      <Custom Action="InstallService" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
