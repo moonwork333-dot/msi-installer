@@ -1,16 +1,18 @@
 @echo off
-REM Install Watson RMM Agent as Windows Service using native sc.exe
+REM Install Watson RMM Agent as Windows Service using VBS wrapper
 REM This script is called by WiX during MSI installation
 
 setlocal enabledelayedexpansion
 
 set INSTALL_DIR=%~dp0
 set EXE_PATH="%INSTALL_DIR%peng-rmm-agent.exe"
+set VBS_WRAPPER="%INSTALL_DIR%service-wrapper.vbs"
 set SERVICE_NAME=WatsonRMMAgent
 set SERVICE_DISPLAY=Watson RMM Agent
 
 echo Installing %SERVICE_DISPLAY% service...
 echo Service path: %EXE_PATH%
+echo Wrapper path: %VBS_WRAPPER%
 echo Install dir: %INSTALL_DIR%
 
 REM Delete service if it already exists
@@ -22,19 +24,12 @@ if not errorlevel 1 (
   timeout /t 2 /nobreak >nul
 )
 
-REM Create new service with full path and working directory
-REM IMPORTANT: Use /Path not binPath to specify working directory
-sc create %SERVICE_NAME% binPath= %EXE_PATH% start= auto DisplayName= "%SERVICE_DISPLAY%" 
+REM Create new service pointing to VBS wrapper
+REM The VBS wrapper will launch and monitor the Node.js process
+sc create %SERVICE_NAME% binPath= "cscript.exe %VBS_WRAPPER%" start= auto DisplayName= "%SERVICE_DISPLAY%"
 if errorlevel 1 (
   echo ERROR: Failed to create service
   exit /b 1
-)
-
-REM Set service to run in the install directory (working directory)
-REM This ensures the process can find all its dependencies
-sc config %SERVICE_NAME% binPath= "%EXE_PATH%" start= auto
-if errorlevel 1 (
-  echo WARNING: Could not configure service working directory
 )
 
 REM Set service description
@@ -42,10 +37,6 @@ sc description %SERVICE_NAME% "Remote monitoring and management agent for Watson
 
 REM Set recovery options - restart on failure
 sc failure %SERVICE_NAME% reset= 60 actions= restart/5000/restart/5000/restart/5000
-
-REM Allow service to interact with desktop session (might be needed for screenshots)
-REM This will fail on some systems but that's OK
-sc config %SERVICE_NAME% type= own interact= on >nul 2>&1
 
 REM Start the service immediately
 echo Starting service...
@@ -63,7 +54,7 @@ sc query %SERVICE_NAME% | find "RUNNING" >nul
 if errorlevel 1 (
   echo WARNING: Service may not be running yet
   echo Checking logs at: C:\ProgramData\WatsonRMMAgent\agent.log
-  echo Fallback log: C:\watson-agent-startup.log
+  echo VBS Wrapper log: C:\ProgramData\WatsonRMMAgent\service-wrapper.log
 ) else (
   echo Service is running successfully
 )
