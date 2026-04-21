@@ -59,6 +59,13 @@
               Source="$(var.SourceDir)\uninstall-service.bat" 
               KeyPath="yes" />
       </Component>
+
+      <!-- Service wrapper VBS file -->
+      <Component Id="ServiceWrapperFile" Guid="F6A7B8C9-D0E1-2345-CDEF-6789ABCDEF01">
+        <File Id="ServiceWrapperVbs" 
+              Source="$(var.SourceDir)\service-wrapper.vbs" 
+              KeyPath="yes" />
+      </Component>
     </ComponentGroup>
 
     <!-- Custom Actions to install/remove service using batch files -->
