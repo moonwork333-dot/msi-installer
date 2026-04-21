@@ -80,13 +80,6 @@
               Source="$(var.SourceDir)\license.rtf" 
               KeyPath="yes" />
       </Component>
-
-      <!-- Post-install README -->
-      <Component Id="PostInstallReadme" Guid="B8C9D0E1-F2A3-4567-CDEF-890123456789">
-        <File Id="PostInstallTxt" 
-              Source="$(var.SourceDir)\POST-INSTALL.txt" 
-              KeyPath="yes" />
-      </Component>
     </DirectoryRef>
 
     <!-- Custom Action - Call setup batch file after installation -->
@@ -110,7 +103,6 @@
       <ComponentRef Id="UninstallBatchFile" />
       <ComponentRef Id="NSSMExecutable" />
       <ComponentRef Id="LicenseFile" />
-      <ComponentRef Id="PostInstallReadme" />
     </Feature>
 
     <!-- UI -->
