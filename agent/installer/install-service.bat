@@ -26,9 +26,11 @@ if not errorlevel 1 (
 
 REM Create new service pointing to VBS wrapper
 REM The VBS wrapper will launch and monitor the Node.js process
-sc create %SERVICE_NAME% binPath= "cscript.exe %VBS_WRAPPER%" start= auto DisplayName= "%SERVICE_DISPLAY%"
+REM Important: binPath needs proper escaping for paths with spaces
+sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
 if errorlevel 1 (
   echo ERROR: Failed to create service
+  echo Attempted command: sc create %SERVICE_NAME% binPath= "cscript.exe \"%VBS_WRAPPER%\"" start= auto DisplayName= "%SERVICE_DISPLAY%"
   exit /b 1
 )
 
