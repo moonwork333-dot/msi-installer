@@ -1,11 +1,11 @@
-name: Build Watson RMM Agent MSI
+name: Build Watson RMM Agent and MSI Installer
 
 on:
   push:
     branches: [ main, develop ]
     paths:
       - 'agent/**'
-      - '.github/workflows/build-msi.yml'
+      - '.github/workflows/build-agent-and-msi.yml'
   workflow_dispatch:
 
 jobs:
@@ -15,9 +15,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Verify NSSM is present
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install agent dependencies
+        working-directory: agent
+        run: npm install
+      
+      - name: Install pkg (Node.js to EXE compiler)
+        run: npm install -g pkg
+      
+      - name: Compile agent to EXE
+        working-directory: agent
+        run: |
+          pkg service.js --targets win-x64 --output peng-rmm-agent.exe
+          echo "EXE created successfully"
+      
+      - name: Copy compiled EXE to installer directory
         shell: cmd
-        run: dir "agent\installer\nssm.exe"
+        run: |
+          copy agent\peng-rmm-agent.exe agent\installer\peng-rmm-agent.exe
+          echo Agent EXE copied to installer directory
+      
+      - name: Copy config to installer directory
+        shell: cmd
+        run: |
+          copy agent\config.json agent\installer\config.json
+          echo Config copied to installer directory
+      
+      - name: Verify installer files
+        shell: cmd
+        run: |
+          echo Verifying installer files:
+          dir "agent\installer\peng-rmm-agent.exe"
+          dir "agent\installer\config.json"
+          dir "agent\installer\nssm.exe"
       
       - name: Build MSI
         shell: cmd
