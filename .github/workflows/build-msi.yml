@@ -57,7 +57,8 @@ jobs:
         working-directory: agent/installer
         run: |
           REM Generate component list from staging directory
-          heat dir ..\..\staging -o files.wxs -ag -var var.SourceDir -cg ProductFiles
+          REM -dr INSTALLFOLDER tells heat to root files in INSTALLFOLDER directory
+          heat dir ..\..\staging -o files.wxs -ag -var var.SourceDir -cg ProductFiles -dr INSTALLFOLDER
           echo files.wxs generated
       
       - name: Compile WiX sources
