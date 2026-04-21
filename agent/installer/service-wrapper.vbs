@@ -3,12 +3,11 @@
 
 On Error Resume Next
 
-Set objWMIService = GetObject("winmgmts:")
 Set objShell = CreateObject("WScript.Shell")
 Set objFSO = CreateObject("Scripting.FileSystemObject")
 
 ' Configuration
-Dim serviceName, exePath, logDir, logFile, installDir
+Dim serviceName, exePath, logDir, logFile, installDir, objProcess
 
 serviceName = "WatsonRMMAgent"
 
@@ -23,6 +22,10 @@ End If
 exePath = installDir & "\peng-rmm-agent.exe"
 logDir = objShell.ExpandEnvironmentStrings("%PROGRAMDATA%") & "\WatsonRMMAgent"
 logFile = logDir & "\service-wrapper.log"
+
+' Store reference to keep process alive
+Dim agentProcess
+Set agentProcess = Nothing
 
 Sub LogMessage(message)
     Dim logEntry, timestamp, fso, file
@@ -48,21 +51,20 @@ LogMessage "=== Watson RMM Agent Service Wrapper Started ==="
 LogMessage "Install Directory: " & installDir
 LogMessage "EXE Path: " & exePath
 LogMessage "Log Directory: " & logDir
+LogMessage "Working from: " & objShell.CurrentDirectory
 
 ' Check if EXE exists
 If Not objFSO.FileExists(exePath) Then
     LogMessage "ERROR: EXE not found at " & exePath
-    ' Don't exit - keep the wrapper running even if exe missing
-    ' This prevents service from being marked as failed
 Else
     LogMessage "EXE found, ready to launch"
 End If
 
-' Start the process using Shell.Run with explicit working directory
+' Start the process using direct Shell.Exec
 Sub StartAgent()
-    Dim retries, success, cmd, exitCode
+    Dim retries, success
     
-    LogMessage "Starting Watson RMM Agent..."
+    LogMessage "Starting Watson RMM Agent (Exec method)..."
     
     If Not objFSO.FileExists(exePath) Then
         LogMessage "ERROR: Cannot start - EXE not found at " & exePath
@@ -75,19 +77,18 @@ Sub StartAgent()
     Do While retries < 3 And Not success
         On Error Resume Next
         
-        ' Use cmd.exe with explicit directory change to ensure proper working directory
-        cmd = "cmd.exe /c cd /d """ & installDir & """ && """ & exePath & """"
-        LogMessage "Attempting to launch with: " & cmd
-        
-        exitCode = objShell.Run(cmd, 0, False)
+        ' Launch EXE directly using Exec (non-blocking)
+        ' This keeps the process reference alive in agentProcess
+        Set agentProcess = objShell.Exec(exePath)
         
         If Err.Number = 0 Then
-            LogMessage "Process launched (exit code: " & exitCode & ")"
+            LogMessage "Process started with Exec (Status: " & agentProcess.Status & ")"
             success = True
-            WScript.Sleep 1000 ' Give it a moment to start
+            WScript.Sleep 2000 ' Give process time to initialize
         Else
-            LogMessage "ERROR: Failed to launch (error " & Err.Number & "): " & Err.Description
+            LogMessage "ERROR: Failed to exec process (error " & Err.Number & "): " & Err.Description
             Err.Clear
+            Set agentProcess = Nothing
             retries = retries + 1
             WScript.Sleep 2000
         End If
@@ -96,35 +97,47 @@ Sub StartAgent()
     
     If Not success Then
         LogMessage "ERROR: Could not start process after 3 attempts"
+        Set agentProcess = Nothing
     End If
 End Sub
 
 ' Main execution
 StartAgent()
 
-' Keep the VBS running indefinitely
-' This allows Windows Service Manager to see it as a running service
+' Keep the VBS running indefinitely with the process reference
 LogMessage "Entering main loop - keeping wrapper alive"
 
-Dim lastCheck
+Dim lastCheck, checkCount
 lastCheck = Now()
+checkCount = 0
 
 Do While True
-    WScript.Sleep 10000 ' Sleep for 10 seconds
+    WScript.Sleep 5000 ' Sleep for 5 seconds
+    
+    ' Check if process is still running
+    On Error Resume Next
+    If Not (agentProcess Is Nothing) Then
+        ' If we have a process reference, check if it's still running
+        If agentProcess.Status = 0 Then
+            ' Status 0 = still running
+            checkCount = checkCount + 1
+        Else
+            ' Status 1 = process exited
+            LogMessage "WARNING: Process exited with status " & agentProcess.Status & ", attempting restart..."
+            Set agentProcess = Nothing
+            StartAgent()
+            checkCount = 0
+        End If
+    End If
+    On Error Goto 0
     
     ' Every 30 seconds, log a heartbeat
     If DateDiff("s", lastCheck, Now()) >= 30 Then
-        LogMessage "Service wrapper running (monitoring " & exePath & ")"
+        If Not (agentProcess Is Nothing) Then
+            LogMessage "Service wrapper running (process status: " & agentProcess.Status & ")"
+        Else
+            LogMessage "Service wrapper running (no process reference)"
+        End If
         lastCheck = Now()
-    End If
-    
-    ' Check if process is still running
-    Dim objWMI, colProcesses
-    Set objWMI = GetObject("winmgmts:")
-    Set colProcesses = objWMI.ExecQuery("Select * from Win32_Process Where Name = 'peng-rmm-agent.exe'")
-    
-    If colProcesses.Count = 0 Then
-        LogMessage "WARNING: Process not running, attempting restart..."
-        StartAgent()
     End If
 Loop
