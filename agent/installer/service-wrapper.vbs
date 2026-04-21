@@ -11,7 +11,15 @@ Set objFSO = CreateObject("Scripting.FileSystemObject")
 Dim serviceName, exePath, logDir, logFile, installDir
 
 serviceName = "WatsonRMMAgent"
-installDir = objShell.CurrentDirectory
+
+' Get installation directory from command-line arguments
+' If no argument provided, try current directory (for manual testing)
+If WScript.Arguments.Count > 0 Then
+    installDir = WScript.Arguments(0)
+Else
+    installDir = objShell.CurrentDirectory
+End If
+
 exePath = installDir & "\peng-rmm-agent.exe"
 logDir = objShell.ExpandEnvironmentStrings("%PROGRAMDATA%") & "\WatsonRMMAgent"
 logFile = logDir & "\service-wrapper.log"
