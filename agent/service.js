@@ -452,11 +452,14 @@ main().catch((error) => {
 });
 
 // Keep the process alive - MUST NOT EXIT
+// Write keepalive markers to prove the process is still running to Windows service manager
 setInterval(() => {
-  if (!isConnected) {
-    // Silently keep alive
+  try {
+    fs.appendFileSync(startupLogPath, `[${new Date().toISOString()}] [KEEPALIVE] Process running, connected=${isConnected}\n`);
+  } catch (err) {
+    // Ignore
   }
-}, 30000);
+}, 2000);
 
 // Final safety net
 process.on("exit", (code) => {
