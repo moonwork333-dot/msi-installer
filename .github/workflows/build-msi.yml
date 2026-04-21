@@ -31,36 +31,48 @@ jobs:
         working-directory: agent
         run: |
           pkg service.js --targets win-x64 --output peng-rmm-agent.exe
-          echo "EXE created successfully"
+          echo EXE created successfully
       
-      - name: Copy compiled EXE to installer directory
+      - name: Create clean staging directory for MSI
         shell: cmd
         run: |
-          copy agent\peng-rmm-agent.exe agent\installer\peng-rmm-agent.exe
-          echo Agent EXE copied to installer directory
+          mkdir staging
+          copy agent\peng-rmm-agent.exe staging\
+          copy agent\config.json staging\
+          copy agent\installer\nssm.exe staging\
+          copy agent\installer\setup.bat staging\
+          copy agent\installer\install-service.bat staging\
+          copy agent\installer\uninstall-service.bat staging\
+          copy agent\installer\license.rtf staging\
+          echo Staging directory created with all required files
       
-      - name: Copy config to installer directory
+      - name: Verify staging files
         shell: cmd
         run: |
-          copy agent\config.json agent\installer\config.json
-          echo Config copied to installer directory
+          echo Staging directory contents:
+          dir staging
       
-      - name: Verify installer files
-        shell: cmd
-        run: |
-          echo Verifying installer files:
-          dir "agent\installer\peng-rmm-agent.exe"
-          dir "agent\installer\config.json"
-          dir "agent\installer\nssm.exe"
-      
-      - name: Build MSI
+      - name: Generate file list with heat.exe
         shell: cmd
         working-directory: agent/installer
         run: |
-          REM Build the WiX MSI
-          heat dir . -o files.wxs -ag -var var.SourceDir -cg ProductFiles
-          candle.exe Product.wxs files.wxs -out obj\ -dSourceDir=.
+          REM Generate component list from staging directory
+          heat dir ..\..\staging -o files.wxs -ag -var var.SourceDir -cg ProductFiles
+          echo files.wxs generated
+      
+      - name: Compile WiX sources
+        shell: cmd
+        working-directory: agent/installer
+        run: |
+          candle.exe Product.wxs files.wxs -out obj\ -dSourceDir=..\..\staging
+          echo WiX compiled successfully
+      
+      - name: Link MSI
+        shell: cmd
+        working-directory: agent/installer
+        run: |
           light.exe -out WatsonRMMAgent.msi obj\Product.wixobj obj\files.wixobj -ext WixUIExtension
+          echo MSI linked successfully
       
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
