@@ -33,47 +33,54 @@ jobs:
           pkg service.js --targets win-x64 --output peng-rmm-agent.exe
           echo EXE created successfully
       
-      - name: Create clean staging directory for MSI
+      - name: Copy files to installer directory
         shell: cmd
         run: |
-          mkdir staging
-          copy agent\peng-rmm-agent.exe staging\
-          copy agent\config.json staging\
-          copy agent\installer\nssm.exe staging\
-          copy agent\installer\setup.bat staging\
-          copy agent\installer\install-service.bat staging\
-          copy agent\installer\uninstall-service.bat staging\
-          copy agent\installer\license.rtf staging\
-          echo Staging directory created with all required files
+          echo Copying files to installer directory...
+          copy agent\peng-rmm-agent.exe agent\installer\
+          copy agent\config.json agent\installer\
+          echo Files copied successfully
       
-      - name: Verify staging files
-        shell: cmd
-        run: |
-          echo Staging directory contents:
-          dir staging
-      
-      - name: Generate file list with heat.exe
+      - name: Verify installer files exist
         shell: cmd
         working-directory: agent/installer
         run: |
-          REM Generate component list from staging directory
-          REM -dr INSTALLFOLDER tells heat to root files in INSTALLFOLDER directory
-          heat dir ..\..\staging -o files.wxs -ag -var var.SourceDir -cg ProductFiles -dr INSTALLFOLDER
-          echo files.wxs generated
+          echo Checking required files:
+          if not exist peng-rmm-agent.exe echo ERROR: peng-rmm-agent.exe missing && exit /b 1
+          if not exist config.json echo ERROR: config.json missing && exit /b 1
+          if not exist nssm.exe echo ERROR: nssm.exe missing && exit /b 1
+          if not exist setup.bat echo ERROR: setup.bat missing && exit /b 1
+          if not exist install-service.bat echo ERROR: install-service.bat missing && exit /b 1
+          if not exist uninstall-service.bat echo ERROR: uninstall-service.bat missing && exit /b 1
+          if not exist license.rtf echo ERROR: license.rtf missing && exit /b 1
+          echo All files verified successfully
+          dir
       
       - name: Compile WiX sources
         shell: cmd
         working-directory: agent/installer
         run: |
-          candle.exe Product.wxs files.wxs -out obj\ -dSourceDir=..\..\staging
-          echo WiX compiled successfully
+          echo Compiling WiX...
+          candle.exe Product.wxs -out obj\ -dSourceDir=.
+          if errorlevel 1 exit /b 1
+          echo WiX compilation successful
       
       - name: Link MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          light.exe -out WatsonRMMAgent.msi obj\Product.wixobj obj\files.wixobj -ext WixUIExtension
+          echo Linking MSI...
+          light.exe -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension
+          if errorlevel 1 exit /b 1
           echo MSI linked successfully
+      
+      - name: Verify MSI created
+        shell: cmd
+        working-directory: agent/installer
+        run: |
+          if not exist WatsonRMMAgent.msi echo ERROR: MSI not created && exit /b 1
+          dir WatsonRMMAgent.msi
+          echo MSI created successfully
       
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
