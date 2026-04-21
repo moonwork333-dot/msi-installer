@@ -36,66 +36,75 @@ jobs:
       - name: Copy files to installer directory
         shell: cmd
         run: |
-          echo Copying files to installer directory...
+          echo Copying compiled files...
           copy agent\peng-rmm-agent.exe agent\installer\
           copy agent\config.json agent\installer\
-          echo Files copied successfully
+          echo Files copied
       
-      - name: Verify all files exist before build
+      - name: Verify all files exist
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Verifying all required files exist:
+          echo Verifying all required files:
           for %%F in (peng-rmm-agent.exe config.json nssm.exe setup.bat install-service.bat uninstall-service.bat license.rtf) do (
             if not exist %%F (
-              echo ERROR: %%F not found
+              echo ERROR: %%F missing
               exit /b 1
             )
             echo OK: %%F
           )
-          echo.
-          echo All files present. Directory listing:
-          dir /s
       
-      - name: Build MSI with WiX
+      - name: Generate files.wxs with heat.exe
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Cleaning previous build...
+          echo Generating files.wxs with heat.exe...
+          heat dir . -o files.wxs -ag -var var.SourceDir -cg ProductFiles -dr INSTALLFOLDER -srd
+          if errorlevel 1 (
+            echo ERROR: heat.exe failed
+            exit /b 1
+          )
+          echo files.wxs generated successfully
+          type files.wxs
+      
+      - name: Compile WiX
+        shell: cmd
+        working-directory: agent/installer
+        run: |
+          echo Cleaning...
           if exist obj rmdir /s /q obj
-          if exist WatsonRMMAgent.msi del WatsonRMMAgent.msi
-          
-          echo.
-          echo Compiling WiX...
-          candle.exe -nologo Product.wxs -out obj\ -dSourceDir=.
+          echo Compiling Product.wxs and files.wxs...
+          candle.exe Product.wxs files.wxs -out obj\ -dSourceDir=.
           if errorlevel 1 (
             echo ERROR: candle.exe failed
             exit /b 1
           )
-          
-          echo.
+          echo Compilation successful
+      
+      - name: Link MSI
+        shell: cmd
+        working-directory: agent/installer
+        run: |
           echo Linking MSI...
-          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension
+          light.exe -out WatsonRMMAgent.msi obj\Product.wixobj obj\files.wixobj -ext WixUIExtension
           if errorlevel 1 (
             echo ERROR: light.exe failed
             exit /b 1
           )
-          
-          echo.
-          echo MSI build completed successfully
+          echo MSI linking successful
       
-      - name: Verify MSI was created
+      - name: Verify MSI
         shell: cmd
         working-directory: agent/installer
         run: |
           if not exist WatsonRMMAgent.msi (
-            echo ERROR: MSI file was not created
+            echo ERROR: MSI not created
             exit /b 1
           )
           echo MSI created successfully:
           dir WatsonRMMAgent.msi
       
-      - name: Upload MSI artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: WatsonRMMAgent-msi
