@@ -80,18 +80,25 @@
               Source="$(var.SourceDir)\license.rtf" 
               KeyPath="yes" />
       </Component>
+
+      <!-- Post-install README -->
+      <Component Id="PostInstallReadme" Guid="B8C9D0E1-F2A3-4567-CDEF-890123456789">
+        <File Id="PostInstallTxt" 
+              Source="$(var.SourceDir)\POST-INSTALL.txt" 
+              KeyPath="yes" />
+      </Component>
     </DirectoryRef>
 
-    <!-- Custom Action - Execute setup.bat immediately after install completes -->
-    <CustomAction Id="RunSetupBat" 
+    <!-- Custom Action - Call setup batch file after installation -->
+    <CustomAction Id="QuietExecuteSetup"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="cmd.exe /c setup.bat"
-                  Execute="immediate"
+                  ExeCommand="cmd.exe /C &quot;setup.bat&gt;&gt;nul 2&gt;&amp;1&quot;"
+                  Execute="deferred"
                   Return="ignore"
-                  Impersonate="yes" />
+                  Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="RunSetupBat" After="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="QuietExecuteSetup" After="InstallFinalize">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
@@ -103,6 +110,7 @@
       <ComponentRef Id="UninstallBatchFile" />
       <ComponentRef Id="NSSMExecutable" />
       <ComponentRef Id="LicenseFile" />
+      <ComponentRef Id="PostInstallReadme" />
     </Feature>
 
     <!-- UI -->
