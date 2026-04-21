@@ -58,9 +58,9 @@ Else
     LogMessage "EXE found, ready to launch"
 End If
 
-' Start the process
+' Start the process using Shell.Run with explicit working directory
 Sub StartAgent()
-    Dim retries, success, objExec
+    Dim retries, success, cmd, exitCode
     
     LogMessage "Starting Watson RMM Agent..."
     
@@ -74,16 +74,22 @@ Sub StartAgent()
     
     Do While retries < 3 And Not success
         On Error Resume Next
-        Set objExec = objShell.Exec(exePath)
         
-        If Err.Number <> 0 Then
-            LogMessage "ERROR: Failed to start process (attempt " & (retries + 1) & "): " & Err.Description
+        ' Use cmd.exe with explicit directory change to ensure proper working directory
+        cmd = "cmd.exe /c cd /d """ & installDir & """ && """ & exePath & """"
+        LogMessage "Attempting to launch with: " & cmd
+        
+        exitCode = objShell.Run(cmd, 0, False)
+        
+        If Err.Number = 0 Then
+            LogMessage "Process launched (exit code: " & exitCode & ")"
+            success = True
+            WScript.Sleep 1000 ' Give it a moment to start
+        Else
+            LogMessage "ERROR: Failed to launch (error " & Err.Number & "): " & Err.Description
             Err.Clear
             retries = retries + 1
             WScript.Sleep 2000
-        Else
-            LogMessage "Process started successfully"
-            success = True
         End If
         On Error Goto 0
     Loop
