@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Download NSSM
         shell: pwsh
@@ -60,7 +60,7 @@ jobs:
           light.exe -out WatsonRMMAgent.msi obj\Product.wixobj obj\files.wixobj -ext WixUIExtension
       
       - name: Upload MSI artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: WatsonRMMAgent-msi
           path: agent/installer/WatsonRMMAgent.msi
