@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  
+  <?define ProductName = "Watson RMM Agent" ?>
+  <?define ProductVersion = "1.0.0.0" ?>
+  <?define ProductManufacturer = "Watson Parts" ?>
+  <?define UpgradeCode = "12345678-1234-1234-1234-123456789012" ?>
+  
+  <Product Id="*" 
+           Name="$(var.ProductName)" 
+           Language="1033" 
+           Version="$(var.ProductVersion)" 
+           Manufacturer="$(var.ProductManufacturer)" 
+           UpgradeCode="$(var.UpgradeCode)">
+    
+    <Package InstallerVersion="500" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Description="$(var.ProductName) Installation Package" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <!-- This is critical: tell WiX to embed cabinet in the MSI -->
+    <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Watson RMM Agent" />
+      </Directory>
+    </Directory>
+
+    <!-- Files Section -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <!-- Agent Executable -->
+      <Component Id="AgentExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890" Win64="no">
+        <File Id="peng_rmm_agent_exe" 
+              Name="peng-rmm-agent.exe" 
+              Source="peng-rmm-agent.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Config JSON -->
+      <Component Id="ConfigJSON" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012" Win64="no">
+        <File Id="config_json" 
+              Name="config.json" 
+              Source="config.json"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- NSSM Executable -->
+      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD" Win64="no">
+        <File Id="nssm_exe" 
+              Name="nssm.exe" 
+              Source="nssm.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Setup Script -->
+      <Component Id="SetupScript" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF" Win64="no">
+        <File Id="setup_bat" 
+              Name="setup.bat" 
+              Source="setup.bat"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Install Service Script -->
+      <Component Id="InstallServiceScript" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDEF01" Win64="no">
+        <File Id="install_service_bat" 
+              Name="install-service.bat" 
+              Source="install-service.bat"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Uninstall Service Script -->
+      <Component Id="UninstallServiceScript" Guid="F6A7B8C9-D0E1-2345-CDEF-6789ABCDEF012" Win64="no">
+        <File Id="uninstall_service_bat" 
+              Name="uninstall-service.bat" 
+              Source="uninstall-service.bat"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- License File -->
+      <Component Id="LicenseFile" Guid="A7B8C9D0-E1F2-3456-CDEF-789ABCDEF0123" Win64="no">
+        <File Id="license_rtf" 
+              Name="license.rtf" 
+              Source="license.rtf"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
+      <ComponentRef Id="AgentExecutable" />
+      <ComponentRef Id="ConfigJSON" />
+      <ComponentRef Id="NSSMExecutable" />
+      <ComponentRef Id="SetupScript" />
+      <ComponentRef Id="InstallServiceScript" />
+      <ComponentRef Id="UninstallServiceScript" />
+      <ComponentRef Id="LicenseFile" />
+    </Feature>
+
+    <!-- Custom Actions for Service Setup -->
+    <CustomAction Id="RunSetupScript" 
+                  ExeCommand="cmd.exe /c setup.bat"
+                  Directory="INSTALLFOLDER"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <CustomAction Id="RunUninstallScript" 
+                  ExeCommand="cmd.exe /c uninstall-service.bat"
+                  Directory="INSTALLFOLDER"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunUninstallScript" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
+      <Custom Action="RunSetupScript" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
+
+    <!-- UI -->
+    <UIRef Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+  </Product>
+</Wix>
