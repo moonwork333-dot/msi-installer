@@ -30,13 +30,59 @@
       </Directory>
     </Directory>
 
-    <!-- Auto-generated files from heat.exe -->
-    <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentGroupRef Id="ProductFiles" />
-    </Feature>
+    <!-- Product Components - Manually defined -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Main executable -->
+      <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+        <File Id="AgentExe" 
+              Source="$(var.SourceDir)\peng-rmm-agent.exe" 
+              KeyPath="yes" />
+      </Component>
+      
+      <!-- Config file -->
+      <Component Id="ConfigFile" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
+        <File Id="ConfigJson" 
+              Source="$(var.SourceDir)\config.json" 
+              KeyPath="yes" />
+      </Component>
 
-    <!-- Custom Actions to install/remove service using batch files -->
-    <!-- Setup script installs the service -->
+      <!-- NSSM executable -->
+      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
+        <File Id="NssmExe" 
+              Source="$(var.SourceDir)\nssm.exe" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Setup script -->
+      <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
+        <File Id="SetupBat" 
+              Source="$(var.SourceDir)\setup.bat" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Install service batch file -->
+      <Component Id="InstallBatchFile" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF">
+        <File Id="InstallBat" 
+              Source="$(var.SourceDir)\install-service.bat" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Uninstall service batch file -->
+      <Component Id="UninstallBatchFile" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDEF0">
+        <File Id="UninstallBat" 
+              Source="$(var.SourceDir)\uninstall-service.bat" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- License file -->
+      <Component Id="LicenseFile" Guid="A8B9C0D1-E2F3-4567-CDEF-89ABCDEF0123">
+        <File Id="LicenseRtf" 
+              Source="$(var.SourceDir)\license.rtf" 
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Custom Actions to install/remove service -->
     <CustomAction Id="SetupService" 
                   ExeCommand="cmd.exe /c setup.bat"
                   Directory="INSTALLFOLDER"
@@ -44,7 +90,6 @@
                   Return="ignore"
                   Impersonate="no" />
     
-    <!-- Uninstall service when MSI is removed -->
     <CustomAction Id="UninstallService" 
                   ExeCommand="cmd.exe /c uninstall-service.bat"
                   Directory="INSTALLFOLDER"
@@ -57,7 +102,12 @@
       <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
-    <!-- UI - Minimal installer -->
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <!-- UI -->
     <UIRef Id="WixUI_Minimal" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\license.rtf" />
 
