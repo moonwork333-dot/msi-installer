@@ -25,7 +25,7 @@
 
     <!-- Directory Structure -->
     <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFiles64Folder">
+      <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Watson RMM Agent" />
       </Directory>
     </Directory>
@@ -43,13 +43,6 @@
       <Component Id="ConfigFile" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
         <File Id="ConfigJson" 
               Source="$(var.SourceDir)\config.json" 
-              KeyPath="yes" />
-      </Component>
-
-      <!-- NSSM executable (pre-downloaded in build) -->
-      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
-        <File Id="NssmExe" 
-              Source="$(var.SourceDir)\nssm.exe" 
               KeyPath="yes" />
       </Component>
 
@@ -73,10 +66,17 @@
               Source="$(var.SourceDir)\uninstall-service.bat" 
               KeyPath="yes" />
       </Component>
+
+      <!-- NSSM executable -->
+      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
+        <File Id="NssmExe" 
+              Source="$(var.SourceDir)\nssm.exe" 
+              KeyPath="yes" />
+      </Component>
     </ComponentGroup>
 
-    <!-- Custom Actions to run setup during installation -->
-    <!-- Setup script runs automatically after files are installed -->
+    <!-- Custom Actions to install/remove service using batch files -->
+    <!-- Setup script (downloads NSSM and installs service) -->
     <CustomAction Id="SetupService" 
                   ExeCommand="cmd.exe /c setup.bat"
                   Directory="INSTALLFOLDER"
@@ -84,7 +84,7 @@
                   Return="ignore"
                   Impersonate="no" />
     
-    <!-- Uninstall service when MSI is removed -->
+    <!-- Uninstall service batch file via cmd.exe -->
     <CustomAction Id="UninstallService" 
                   ExeCommand="cmd.exe /c uninstall-service.bat"
                   Directory="INSTALLFOLDER"
