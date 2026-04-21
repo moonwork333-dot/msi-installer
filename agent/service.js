@@ -1,9 +1,26 @@
+// CRITICAL: First line - write startup marker BEFORE any requires
+const fs = require("fs");
+const path = require("path");
+
+// Try to write startup marker to multiple locations
+const fallbackLog = "C:\\watson-agent-startup.log";
+try {
+  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] Process started - Node ${process.version}\n`);
+} catch (e) {
+  // Ignore
+}
+
 const signalR = require("@microsoft/signalr");
 const { HttpTransportType } = require("@microsoft/signalr");
 const os = require("os");
 const { exec } = require("child_process");
-const fs = require("fs");
-const path = require("path");
+
+// Write after requires
+try {
+  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] All requires successful\n`);
+} catch (e) {
+  // Ignore
+}
 
 // Configuration
 let CONFIG = {
@@ -56,6 +73,13 @@ function log(message) {
     fs.appendFileSync(LOG_FILE, logMessage + "\n");
   } catch (error) {
     // Ignore log write errors
+  }
+
+  // Also write to fallback log
+  try {
+    fs.appendFileSync(fallbackLog, logMessage + "\n");
+  } catch (error) {
+    // Ignore
   }
 }
 
