@@ -19,59 +19,19 @@
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     
-    <!-- Ensure files are embedded in cabinet -->
-    <Media Id="1" Cabinet="Product.cab" EmbedCab="yes" />
+    <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
 
-    <!-- Directory Structure -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Watson RMM Agent" />
       </Directory>
     </Directory>
 
-    <!-- Product Files -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentRef Id="AgentExeComponent" />
-      <ComponentRef Id="ConfigComponent" />
-      <ComponentRef Id="NssmComponent" />
-      <ComponentRef Id="SetupBatComponent" />
-      <ComponentRef Id="InstallBatComponent" />
-      <ComponentRef Id="UninstallBatComponent" />
-      <ComponentRef Id="LicenseComponent" />
+      <ComponentGroupRef Id="ProductFiles" />
     </Feature>
 
-    <!-- Components -->
-    <DirectoryRef Id="INSTALLFOLDER">
-      <Component Id="AgentExeComponent" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
-        <File Id="AgentExeFile" Source="$(var.SourceDir)\peng-rmm-agent.exe" />
-      </Component>
-      
-      <Component Id="ConfigComponent" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
-        <File Id="ConfigFile" Source="$(var.SourceDir)\config.json" />
-      </Component>
-      
-      <Component Id="NssmComponent" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
-        <File Id="NssmFile" Source="$(var.SourceDir)\nssm.exe" />
-      </Component>
-      
-      <Component Id="SetupBatComponent" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
-        <File Id="SetupBatFile" Source="$(var.SourceDir)\setup.bat" />
-      </Component>
-      
-      <Component Id="InstallBatComponent" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF">
-        <File Id="InstallBatFile" Source="$(var.SourceDir)\install-service.bat" />
-      </Component>
-      
-      <Component Id="UninstallBatComponent" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDEF0">
-        <File Id="UninstallBatFile" Source="$(var.SourceDir)\uninstall-service.bat" />
-      </Component>
-      
-      <Component Id="LicenseComponent" Guid="A8B9C0D1-E2F3-4567-CDEF-89ABCDEF0123">
-        <File Id="LicenseFile" Source="$(var.SourceDir)\license.rtf" />
-      </Component>
-    </DirectoryRef>
-
-    <!-- Custom Actions -->
+    <!-- Custom Actions for service setup -->
     <CustomAction Id="SetupService" 
                   ExeCommand="cmd.exe /c setup.bat"
                   Directory="INSTALLFOLDER"
@@ -91,7 +51,6 @@
       <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
-    <!-- UI -->
     <UIRef Id="WixUI_Minimal" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\license.rtf" />
 
