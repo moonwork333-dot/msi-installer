@@ -74,13 +74,6 @@ function log(message) {
   } catch (error) {
     // Ignore log write errors
   }
-
-  // Also write to fallback log
-  try {
-    fs.appendFileSync(fallbackLog, logMessage + "\n");
-  } catch (error) {
-    // Ignore
-  }
 }
 
 // Catch all unhandled errors
@@ -95,18 +88,9 @@ process.on("unhandledRejection", (reason) => {
   // Don't exit - keep running
 });
 
-// Defer screenshot-desktop - it may not be available
-let screenshot = null;
-function getScreenshot() {
-  if (!screenshot) {
-    try {
-      screenshot = require("screenshot-desktop");
-    } catch (err) {
-      return null;
-    }
-  }
-  return screenshot;
-}
+// Screenshot functionality disabled for packaged executable
+// The screenshot-desktop module cannot be reliably bundled with pkg
+const SCREENSHOT_ENABLED = false;
 
 class AgentService {
   constructor() {
@@ -191,25 +175,15 @@ class AgentService {
       });
 
       this.connection.on("StartScreenCapture", () => {
-        log("[Screenshot] Starting capture...");
-        this.startScreenCapture();
+        log("[Screenshot] Screen capture requested but disabled for this build");
       });
 
       this.connection.on("StopScreenCapture", () => {
-        log("[Screenshot] Stopping capture...");
-        this.stopScreenCapture();
+        log("[Screenshot] Screen capture stop requested");
       });
 
-      this.connection.on("CaptureScreenOnce", async () => {
-        log("[Screenshot] Capturing single frame...");
-        const screenData = await this.captureScreen();
-        if (screenData) {
-          try {
-            await this.connection.invoke("ScreenCapture", os.hostname(), screenData);
-          } catch (error) {
-            log("[Screenshot] Failed to send: " + error.message);
-          }
-        }
+      this.connection.on("CaptureScreenOnce", () => {
+        log("[Screenshot] Screen capture not available in this build");
       });
 
       this.connection.on("GetSystemInfo", async () => {
@@ -309,47 +283,12 @@ class AgentService {
     });
   }
 
-  async captureScreen() {
-    try {
-      const shot = getScreenshot();
-      if (!shot) {
-        return null;
-      }
-      const imgBuffer = await shot({ format: "png" });
-      return imgBuffer.toString("base64");
-    } catch (error) {
-      log("[Screenshot] Capture failed: " + error.message);
-      return null;
-    }
-  }
-
   startScreenCapture() {
-    if (this.screenCaptureInterval) return;
-
-    this.screenCaptureEnabled = true;
-    this.screenCaptureInterval = setInterval(async () => {
-      if (this.isConnected && this.screenCaptureEnabled) {
-        const screenData = await this.captureScreen();
-        if (screenData && this.connection) {
-          try {
-            await this.connection.invoke("ScreenCapture", os.hostname(), screenData);
-          } catch (error) {
-            // Silently ignore send errors
-          }
-        }
-      }
-    }, 1000);
-
-    log("[Screenshot] Capture started");
+    log("[Screenshot] Screen capture not available in this build");
   }
 
   stopScreenCapture() {
-    this.screenCaptureEnabled = false;
-    if (this.screenCaptureInterval) {
-      clearInterval(this.screenCaptureInterval);
-      this.screenCaptureInterval = null;
-    }
-    log("[Screenshot] Capture stopped");
+    log("[Screenshot] Screen capture stop (no-op)");
   }
 
   stop() {
