@@ -15,99 +15,82 @@
     
     <Package InstallerVersion="500" 
              Compressed="yes" 
-             InstallScope="perMachine" 
-             Description="$(var.ProductName) Installation Package" />
+             InstallScope="perMachine"
+             Description="$(var.ProductName) Installer"
+             Comments="Watson RMM Agent for remote monitoring and management" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     
-    <!-- This is critical: tell WiX to embed cabinet in the MSI -->
-    <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
+    <MediaTemplate EmbedCab="yes" />
 
+    <!-- Directory Structure -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Watson RMM Agent" />
       </Directory>
     </Directory>
 
-    <!-- Files Section -->
+    <!-- Product Components -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <!-- Agent Executable -->
-      <Component Id="AgentExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890" Win64="no">
-        <File Id="peng_rmm_agent_exe" 
-              Name="peng-rmm-agent.exe" 
-              Source="peng-rmm-agent.exe"
+      <!-- Main executable -->
+      <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+        <File Id="AgentExe" 
+              Source="$(var.SourceDir)\peng-rmm-agent.exe" 
+              KeyPath="yes" />
+      </Component>
+      
+      <!-- Config file -->
+      <Component Id="ConfigFile" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
+        <File Id="ConfigJson" 
+              Source="$(var.SourceDir)\config.json" 
               KeyPath="yes" />
       </Component>
 
-      <!-- Config JSON -->
-      <Component Id="ConfigJSON" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012" Win64="no">
-        <File Id="config_json" 
-              Name="config.json" 
-              Source="config.json"
+      <!-- Setup script -->
+      <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
+        <File Id="SetupBat" 
+              Source="$(var.SourceDir)\setup.bat" 
               KeyPath="yes" />
       </Component>
 
-      <!-- NSSM Executable -->
-      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD" Win64="no">
-        <File Id="nssm_exe" 
-              Name="nssm.exe" 
-              Source="nssm.exe"
+      <!-- Install service batch file -->
+      <Component Id="InstallBatchFile" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF">
+        <File Id="InstallBat" 
+              Source="$(var.SourceDir)\install-service.bat" 
               KeyPath="yes" />
       </Component>
 
-      <!-- Setup Script -->
-      <Component Id="SetupScript" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF" Win64="no">
-        <File Id="setup_bat" 
-              Name="setup.bat" 
-              Source="setup.bat"
+      <!-- Uninstall service batch file -->
+      <Component Id="UninstallBatchFile" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDE01">
+        <File Id="UninstallBat" 
+              Source="$(var.SourceDir)\uninstall-service.bat" 
               KeyPath="yes" />
       </Component>
 
-      <!-- Install Service Script -->
-      <Component Id="InstallServiceScript" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDEF01" Win64="no">
-        <File Id="install_service_bat" 
-              Name="install-service.bat" 
-              Source="install-service.bat"
+      <!-- NSSM executable -->
+      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
+        <File Id="NssmExe" 
+              Source="$(var.SourceDir)\nssm.exe" 
               KeyPath="yes" />
       </Component>
 
-      <!-- Uninstall Service Script -->
-      <Component Id="UninstallServiceScript" Guid="F6A7B8C9-D0E1-2345-CDEF-6789ABCDEF012" Win64="no">
-        <File Id="uninstall_service_bat" 
-              Name="uninstall-service.bat" 
-              Source="uninstall-service.bat"
-              KeyPath="yes" />
-      </Component>
-
-      <!-- License File -->
-      <Component Id="LicenseFile" Guid="A7B8C9D0-E1F2-3456-CDEF-789ABCDEF0123" Win64="no">
-        <File Id="license_rtf" 
-              Name="license.rtf" 
-              Source="license.rtf"
+      <!-- License file -->
+      <Component Id="LicenseFile" Guid="A7B8C9D0-E1F2-3456-CDEF-789ABCDE0123">
+        <File Id="LicenseRtf" 
+              Source="$(var.SourceDir)\license.rtf" 
               KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
-    <!-- Features -->
-    <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentRef Id="AgentExecutable" />
-      <ComponentRef Id="ConfigJSON" />
-      <ComponentRef Id="NSSMExecutable" />
-      <ComponentRef Id="SetupScript" />
-      <ComponentRef Id="InstallServiceScript" />
-      <ComponentRef Id="UninstallServiceScript" />
-      <ComponentRef Id="LicenseFile" />
-    </Feature>
-
-    <!-- Custom Actions for Service Setup -->
-    <CustomAction Id="RunSetupScript" 
+    <!-- Custom Actions -->
+    <CustomAction Id="SetupService" 
                   ExeCommand="cmd.exe /c setup.bat"
                   Directory="INSTALLFOLDER"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
-
-    <CustomAction Id="RunUninstallScript" 
+    
+    <CustomAction Id="UninstallService" 
                   ExeCommand="cmd.exe /c uninstall-service.bat"
                   Directory="INSTALLFOLDER"
                   Execute="deferred"
@@ -115,13 +98,24 @@
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="RunUninstallScript" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
-      <Custom Action="RunSetupScript" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
+      <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="ConfigFile" />
+      <ComponentRef Id="SetupBatchFile" />
+      <ComponentRef Id="InstallBatchFile" />
+      <ComponentRef Id="UninstallBatchFile" />
+      <ComponentRef Id="NSSMExecutable" />
+      <ComponentRef Id="LicenseFile" />
+    </Feature>
 
     <!-- UI -->
     <UIRef Id="WixUI_Minimal" />
-    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\license.rtf" />
 
   </Product>
 </Wix>
