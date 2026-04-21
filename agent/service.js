@@ -34,7 +34,20 @@ const os = require("os");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const screenshot = require("screenshot-desktop");
+
+// Defer screenshot-desktop - it may not be available and that's OK
+let screenshot = null;
+function getScreenshot() {
+  if (!screenshot) {
+    try {
+      screenshot = require("screenshot-desktop");
+    } catch (err) {
+      appendLog("Warning: screenshot-desktop not available: " + err.message);
+      return null;
+    }
+  }
+  return screenshot;
+}
 
 // Configuration
 const logDir = path.join(process.env.ProgramData || "C:\\ProgramData", "WatsonRMMAgent");
@@ -170,7 +183,12 @@ function executeCommand(command) {
 // Capture screen
 async function captureScreen() {
   try {
-    const imgBuffer = await screenshot({ format: "png" });
+    const shot = getScreenshot();
+    if (!shot) {
+      log("Screenshot module not available");
+      return null;
+    }
+    const imgBuffer = await shot({ format: "png" });
     return imgBuffer.toString("base64");
   } catch (error) {
     log("Screen capture failed: " + error.message);
