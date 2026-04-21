@@ -31,7 +31,7 @@
     </Directory>
 
     <!-- Product Components -->
-    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+    <DirectoryRef Id="INSTALLFOLDER">
       <!-- Main executable -->
       <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
         <File Id="AgentExe" 
@@ -46,7 +46,7 @@
               KeyPath="yes" />
       </Component>
 
-      <!-- Setup script (downloads NSSM automatically) -->
+      <!-- Setup script (orchestrates service installation) -->
       <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
         <File Id="SetupBat" 
               Source="$(var.SourceDir)\setup.bat" 
@@ -73,36 +73,38 @@
               Source="$(var.SourceDir)\nssm.exe" 
               KeyPath="yes" />
       </Component>
-    </ComponentGroup>
 
-    <!-- Custom Actions to install/remove service using batch files -->
-    <!-- Setup service during installation -->
-    <CustomAction Id="SetupService" 
-                  Directory="INSTALLFOLDER"
-                  ExeCommand="cmd.exe /c setup.bat"
-                  Execute="deferred"
+      <!-- License file -->
+      <Component Id="LicenseFile" Guid="A7B8C9D0-E1F2-3456-CDEF-789ABCDE0123">
+        <File Id="LicenseRtf" 
+              Source="$(var.SourceDir)\license.rtf" 
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Custom Action - Execute setup.bat immediately after install completes -->
+    <CustomAction Id="RunSetupBat" 
+                  ExeCommand="[INSTALLFOLDER]setup.bat"
+                  Execute="immediate"
                   Return="ignore"
-                  Impersonate="no" />
-    
-    <!-- Uninstall service during uninstallation -->
-    <CustomAction Id="UninstallService" 
-                  Directory="INSTALLFOLDER"
-                  ExeCommand="cmd.exe /c uninstall-service.bat"
-                  Execute="deferred"
-                  Return="ignore"
-                  Impersonate="no" />
+                  Impersonate="yes" />
 
     <InstallExecuteSequence>
-      <Custom Action="UninstallService" Before="RemoveFiles">(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")</Custom>
-      <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="RunSetupBat" After="InstallFinalize">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="ConfigFile" />
+      <ComponentRef Id="SetupBatchFile" />
+      <ComponentRef Id="InstallBatchFile" />
+      <ComponentRef Id="UninstallBatchFile" />
+      <ComponentRef Id="NSSMExecutable" />
+      <ComponentRef Id="LicenseFile" />
     </Feature>
 
-    <!-- UI - Minimal installer -->
+    <!-- UI -->
     <UIRef Id="WixUI_Minimal" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\license.rtf" />
 
