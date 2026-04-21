@@ -46,6 +46,13 @@
               KeyPath="yes" />
       </Component>
 
+      <!-- NSSM (Non-Sucking Service Manager) -->
+      <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
+        <File Id="NssmExe" 
+              Source="$(var.SourceDir)\nssm.exe" 
+              KeyPath="yes" />
+      </Component>
+
       <!-- Install service batch file -->
       <Component Id="InstallBatchFile" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF">
         <File Id="InstallBat" 
@@ -57,13 +64,6 @@
       <Component Id="UninstallBatchFile" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDEF0">
         <File Id="UninstallBat" 
               Source="$(var.SourceDir)\uninstall-service.bat" 
-              KeyPath="yes" />
-      </Component>
-
-      <!-- Service wrapper VBS file -->
-      <Component Id="ServiceWrapperFile" Guid="F6A7B8C9-D0E1-2345-CDEF-6789ABCDEF01">
-        <File Id="ServiceWrapperVbs" 
-              Source="$(var.SourceDir)\service-wrapper.vbs" 
               KeyPath="yes" />
       </Component>
     </ComponentGroup>
