@@ -84,7 +84,8 @@
 
     <!-- Custom Action - Execute setup.bat immediately after install completes -->
     <CustomAction Id="RunSetupBat" 
-                  ExeCommand="[INSTALLFOLDER]setup.bat"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd.exe /c setup.bat"
                   Execute="immediate"
                   Return="ignore"
                   Impersonate="yes" />
