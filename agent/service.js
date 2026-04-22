@@ -1,26 +1,25 @@
-// CRITICAL: First line - write startup marker BEFORE any requires
+// CRITICAL: Startup marker BEFORE anything else
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
-// Try to write startup marker to multiple locations
+// Write startup marker immediately
 const fallbackLog = "C:\\watson-agent-startup.log";
 try {
-  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] Process started - Node ${process.version}\n`);
+  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] Process started - PID ${process.pid} - Node ${process.version}\n`);
 } catch (e) {
   // Ignore
+}
+
+// Set working directory to script directory for service mode
+if (process.env.NSSM_CONTROLLER_PROCESS) {
+  const scriptDir = path.dirname(process.execPath);
+  process.chdir(scriptDir);
 }
 
 const signalR = require("@microsoft/signalr");
 const { HttpTransportType } = require("@microsoft/signalr");
-const os = require("os");
 const { exec } = require("child_process");
-
-// Write after requires
-try {
-  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] All requires successful\n`);
-} catch (e) {
-  // Ignore
-}
 
 // Configuration
 let CONFIG = {
@@ -30,6 +29,7 @@ let CONFIG = {
 
 const possibleConfigPaths = [
   path.join(path.dirname(process.execPath), "config.json"),
+  "C:\\Program Files\\Watson RMM Agent\\config.json",
   path.join(process.cwd(), "config.json"),
   path.join(__dirname, "config.json"),
 ];
@@ -58,7 +58,11 @@ const LOG_DIR = process.env.PROGRAMDATA
   : path.join(process.cwd(), "logs");
 
 if (!fs.existsSync(LOG_DIR)) {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+  } catch (e) {
+    // Ignore
+  }
 }
 
 const LOG_FILE = path.join(LOG_DIR, "agent.log");
@@ -80,45 +84,55 @@ function log(message) {
 process.on("uncaughtException", (error) => {
   log(`[FATAL] Uncaught exception: ${error.message}`);
   log(error.stack);
-  // Don't exit - keep running
+  try {
+    fs.appendFileSync(fallbackLog, `[FATAL] ${error.message}\n${error.stack}\n`);
+  } catch (e) {}
 });
 
 process.on("unhandledRejection", (reason) => {
   log(`[ERROR] Unhandled rejection: ${reason}`);
-  // Don't exit - keep running
+  try {
+    fs.appendFileSync(fallbackLog, `[ERROR] Unhandled rejection: ${reason}\n`);
+  } catch (e) {}
 });
-
-// Screenshot functionality disabled for packaged executable
-// The screenshot-desktop module cannot be reliably bundled with pkg
-const SCREENSHOT_ENABLED = false;
 
 class AgentService {
   constructor() {
     this.connection = null;
     this.isRunning = false;
     this.isConnected = false;
-    this.screenCaptureEnabled = false;
-    this.screenCaptureInterval = null;
+    this.reconnectAttempts = 0;
   }
 
   async start() {
-    log("[Agent] Starting Watson RMM Agent...");
-    log(`[Agent] Agent ID: ${AGENT_ID}`);
-    log(`[Agent] Hub URL: ${HUB_URL}`);
-    log(`[Agent] Node: ${process.version}`);
-    log(`[Agent] Platform: ${process.platform} ${os.arch()}`);
+    try {
+      log("[Agent] Starting Watson RMM Agent...");
+      log(`[Agent] Agent ID: ${AGENT_ID}`);
+      log(`[Agent] Hub URL: ${HUB_URL}`);
+      log(`[Agent] Node: ${process.version}`);
+      log(`[Agent] Platform: ${process.platform} ${os.arch()}`);
+      log(`[Agent] Working Directory: ${process.cwd()}`);
+      log(`[Agent] Log Directory: ${LOG_DIR}`);
+      log(`[Agent] Config Loaded: ${configLoaded}`);
 
-    this.isRunning = true;
-    this.connect();
+      this.isRunning = true;
+      
+      // Start connection with a slight delay to ensure proper initialization
+      setTimeout(() => this.connect(), 500);
 
-    // Keep process alive with a heartbeat
-    this.heartbeatInterval = setInterval(() => {
-      if (this.isConnected) {
-        log("[Heartbeat] Connected");
-      } else {
-        log("[Heartbeat] Reconnecting...");
-      }
-    }, 30000);
+      // Keep process alive with heartbeat
+      this.heartbeatInterval = setInterval(() => {
+        if (this.isConnected) {
+          log("[Heartbeat] Connected");
+        } else {
+          log("[Heartbeat] Waiting for connection...");
+        }
+      }, 30000);
+    } catch (error) {
+      log(`[FATAL] Start failed: ${error.message}`);
+      log(error.stack);
+      setTimeout(() => this.start(), 5000);
+    }
   }
 
   async connect() {
@@ -152,15 +166,18 @@ class AgentService {
       this.connection.onreconnected((connectionId) => {
         log("[Connection] Reconnected with ID: " + connectionId);
         this.isConnected = true;
+        this.reconnectAttempts = 0;
         this.registerAgent();
       });
 
       this.connection.onclose((error) => {
         log("[Connection] Closed: " + (error?.message || ""));
         this.isConnected = false;
-        this.stopScreenCapture();
         if (this.isRunning) {
-          setTimeout(() => this.connect(), CONFIG.reconnectInterval);
+          this.reconnectAttempts++;
+          const delay = Math.min(CONFIG.reconnectInterval * this.reconnectAttempts, 60000);
+          log(`[Connection] Retrying in ${delay}ms (attempt ${this.reconnectAttempts})`);
+          setTimeout(() => this.connect(), delay);
         }
       });
 
@@ -172,18 +189,6 @@ class AgentService {
         } catch (error) {
           log("[Command] Failed to send result: " + error.message);
         }
-      });
-
-      this.connection.on("StartScreenCapture", () => {
-        log("[Screenshot] Screen capture requested but disabled for this build");
-      });
-
-      this.connection.on("StopScreenCapture", () => {
-        log("[Screenshot] Screen capture stop requested");
-      });
-
-      this.connection.on("CaptureScreenOnce", () => {
-        log("[Screenshot] Screen capture not available in this build");
       });
 
       this.connection.on("GetSystemInfo", async () => {
@@ -211,7 +216,9 @@ class AgentService {
     } catch (error) {
       log("[Connect] Failed: " + error.message);
       if (this.isRunning) {
-        setTimeout(() => this.connect(), CONFIG.reconnectInterval);
+        this.reconnectAttempts++;
+        const delay = Math.min(CONFIG.reconnectInterval * this.reconnectAttempts, 60000);
+        setTimeout(() => this.connect(), delay);
       }
     }
   }
@@ -283,14 +290,6 @@ class AgentService {
     });
   }
 
-  startScreenCapture() {
-    log("[Screenshot] Screen capture not available in this build");
-  }
-
-  stopScreenCapture() {
-    log("[Screenshot] Screen capture stop (no-op)");
-  }
-
   stop() {
     log("[Agent] Stopping...");
     this.isRunning = false;
@@ -298,8 +297,6 @@ class AgentService {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
-
-    this.stopScreenCapture();
 
     if (this.connection) {
       this.connection.stop().catch(() => {});
@@ -326,15 +323,14 @@ process.on("SIGTERM", () => {
   agent.stop();
 });
 
-// Start the agent and keep it running
+// Start the agent
 agent.start().catch((error) => {
   log(`[FATAL] Start failed: ${error.message}`);
   log(error.stack);
-  // Don't exit - try to keep running
   setTimeout(() => agent.start(), 5000);
 });
 
-// Keep process alive indefinitely
+// Keep process alive
 setInterval(() => {
   // Silent keepalive
 }, 60000);
