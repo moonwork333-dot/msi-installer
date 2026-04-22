@@ -42,6 +42,10 @@
         <File Id="UninstallServiceBatFile" Source="$(var.SourceDir)\uninstall-service.bat" KeyPath="yes" />
       </Component>
 
+      <Component Id="CopyServiceBat" Guid="88888888-8888-8888-8888-888888888888">
+        <File Id="CopyServiceBatFile" Source="$(var.SourceDir)\copy-service.bat" KeyPath="yes" />
+      </Component>
+
       <Component Id="NssmExe" Guid="44444444-4444-4444-4444-444444444444">
         <File Id="NssmExeFile" Source="$(var.SourceDir)\nssm.exe" KeyPath="yes" />
       </Component>
@@ -53,23 +57,18 @@
       <Component Id="LicenseFile" Guid="66666666-6666-6666-6666-666666666666">
         <File Id="LicenseRtfFile" Source="$(var.SourceDir)\license.rtf" KeyPath="yes" />
       </Component>
-
-      <!-- Marker component -->
-      <Component Id="InstallMarker" Guid="77777777-7777-7777-7777-777777777777">
-        <CreateFolder />
-      </Component>
     </DirectoryRef>
 
-    <!-- Custom action: Copy service directory -->
-    <CustomAction Id="CopyServiceDirectory" 
-                  Directory="INSTALLFOLDER"
-                  ExeCommand='cmd.exe /c "xcopy /Y /E /I "[SourceDir]service" "[INSTALLFOLDER]service"'
+    <!-- Custom action: Execute copy-service.bat -->
+    <CustomAction Id="CopyServiceFiles" 
+                  FileKey="CopyServiceBatFile"
+                  ExeCommand=''
                   Execute="deferred"
                   Impersonate="no"
-                  Return="check" />
+                  Return="ignore" />
 
-    <!-- Custom action: Setup service -->
-    <CustomAction Id="SetupServiceAction" 
+    <!-- Custom action: Execute install-service.bat -->
+    <CustomAction Id="SetupService" 
                   FileKey="InstallServiceBatFile"
                   ExeCommand=''
                   Execute="deferred"
@@ -77,8 +76,8 @@
                   Return="ignore" />
 
     <InstallExecuteSequence>
-      <Custom Action="CopyServiceDirectory" After="InstallFiles">NOT Installed</Custom>
-      <Custom Action="SetupServiceAction" After="CopyServiceDirectory">NOT Installed</Custom>
+      <Custom Action="CopyServiceFiles" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="SetupService" After="CopyServiceFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
@@ -86,10 +85,10 @@
       <ComponentRef Id="SetupBat" />
       <ComponentRef Id="InstallServiceBat" />
       <ComponentRef Id="UninstallServiceBat" />
+      <ComponentRef Id="CopyServiceBat" />
       <ComponentRef Id="NssmExe" />
       <ComponentRef Id="SetupServiceVbs" />
       <ComponentRef Id="LicenseFile" />
-      <ComponentRef Id="InstallMarker" />
     </Feature>
 
     <!-- UI -->
