@@ -32,39 +32,7 @@
 
     <!-- Product Components -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <!-- Service files -->
-      <Directory Id="ServiceDir" Name="service">
-        <Component Id="ServiceJS" Guid="11111111-1111-1111-1111-111111111111">
-          <File Id="ServiceJsFile" 
-                Source="$(var.SourceDir)\service\service.js" 
-                KeyPath="yes" />
-        </Component>
-        
-        <Component Id="PackageJSON" Guid="22222222-2222-2222-2222-222222222222">
-          <File Id="PackageJsonFile" 
-                Source="$(var.SourceDir)\service\package.json" 
-                KeyPath="yes" />
-        </Component>
-
-        <Component Id="RunServiceBat" Guid="33333333-3333-3333-3333-333333333333">
-          <File Id="RunServiceBatFile" 
-                Source="$(var.SourceDir)\service\run-service.bat" 
-                KeyPath="yes" />
-        </Component>
-
-        <Component Id="ConfigFile" Guid="44444444-4444-4444-4444-444444444444">
-          <File Id="ConfigJsonFile" 
-                Source="$(var.SourceDir)\service\config.json" 
-                KeyPath="yes" />
-        </Component>
-
-        <!-- Node modules -->
-        <Component Id="NodeModules" Guid="55555555-5555-5555-5555-555555555555">
-          <CreateFolder />
-        </Component>
-      </Directory>
-
-      <!-- Batch scripts -->
+      <!-- Batch scripts at root level -->
       <Component Id="SetupBatchFile" Guid="66666666-6666-6666-6666-666666666666">
         <File Id="SetupBat" 
               Source="$(var.SourceDir)\setup.bat" 
@@ -121,17 +89,13 @@
 
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentRef Id="ServiceJS" />
-      <ComponentRef Id="PackageJSON" />
-      <ComponentRef Id="RunServiceBat" />
-      <ComponentRef Id="ConfigFile" />
-      <ComponentRef Id="NodeModules" />
       <ComponentRef Id="SetupBatchFile" />
       <ComponentRef Id="InstallBatchFile" />
       <ComponentRef Id="UninstallBatchFile" />
       <ComponentRef Id="NSSMExecutable" />
       <ComponentRef Id="SetupServiceVBS" />
       <ComponentRef Id="LicenseFile" />
+      <ComponentGroupRef Id="ServiceFilesGroup" />
     </Feature>
 
     <!-- UI -->
