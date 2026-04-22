@@ -38,12 +38,8 @@ jobs:
           if (Test-Path "$installerPath\service") {
             Remove-Item "$installerPath\service" -Recurse -Force
           }
-          
-          if (Test-Path "$installerPath\ServiceFiles.wxs") {
-            Remove-Item "$installerPath\ServiceFiles.wxs" -Force
-          }
       
-      - name: Create service directory structure
+      - name: Create service directory with all node_modules
         shell: powershell
         run: |
           $installerPath = "agent\installer"
@@ -55,7 +51,7 @@ jobs:
           Copy-Item "agent\package.json" "$servicePath\" -Force
           Copy-Item "agent\config.json" "$servicePath\" -Force
           
-          Write-Host "Copying node_modules (this may take a moment)..."
+          Write-Host "Copying node_modules..."
           Copy-Item "agent\node_modules" "$servicePath\node_modules" -Recurse -Force
           
           $batContent = "@echo off`r`nsetlocal enabledelayedexpansion`r`ncd /d %~dp0`r`nnode.exe service.js"
@@ -65,72 +61,40 @@ jobs:
           $sizeBytes = (Get-ChildItem -Path $servicePath -Recurse -File | Measure-Object -Property Length -Sum).Sum
           $sizeMB = [Math]::Round($sizeBytes / 1MB, 2)
           
-          Write-Host "Service directory complete:"
-          Write-Host "  Files: $fileCount"
-          Write-Host "  Size: $sizeMB MB"
+          Write-Host "Service directory created: $fileCount files, $sizeMB MB"
       
-      - name: Harvest service directory with Heat
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          echo Harvesting service directory...
-          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr INSTALLFOLDER -cg ServiceFilesGroup -var var.ServiceSourceDir
-          
-          if errorlevel 1 (
-            echo ERROR: Heat.exe failed
-            exit /b 1
-          )
-          
-          echo Heat.exe harvest completed
-          echo ServiceFiles.wxs file size:
-          dir ServiceFiles.wxs
-      
-      - name: Compile WiX sources
+      - name: Compile Product.wxs
         shell: cmd
         working-directory: agent/installer
         run: |
           if exist obj rmdir /s /q obj
           mkdir obj
           
-          echo Compiling Product.wxs...
-          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service
+          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=.
           if errorlevel 1 (
-            echo ERROR: Product.wxs compilation failed with code !errorlevel!
+            echo ERROR: Product.wxs compilation failed
             exit /b 1
           )
-          
-          echo Compiling ServiceFiles.wxs...
-          candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service
-          if errorlevel 1 (
-            echo ERROR: ServiceFiles.wxs compilation failed with code !errorlevel!
-            exit /b 1
-          )
-          
-          echo WiX compilation successful
       
       - name: Link MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Linking MSI with service files...
-          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab
+          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension -dcl:high -reusecab
           if errorlevel 1 (
-            echo ERROR: MSI linking failed with code !errorlevel!
+            echo ERROR: MSI linking failed
             exit /b 1
           )
-          
-          echo MSI linking successful
       
       - name: Verify MSI was created
         shell: cmd
         working-directory: agent/installer
         run: |
           if not exist WatsonRMMAgent.msi (
-            echo ERROR: WatsonRMMAgent.msi not created
+            echo ERROR: MSI not created
             exit /b 1
           )
           
-          echo MSI created successfully:
           dir WatsonRMMAgent.msi
       
       - name: Upload MSI artifact
