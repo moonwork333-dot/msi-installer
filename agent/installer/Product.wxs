@@ -32,31 +32,11 @@
 
     <!-- Product Components -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <!-- Main executable - This will be registered as a service -->
+      <!-- Main executable -->
       <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
         <File Id="AgentExe" 
               Source="$(var.SourceDir)\peng-rmm-agent.exe" 
               KeyPath="yes" />
-        
-        <!-- WiX native service installation with explicit path -->
-        <ServiceInstall Id="WatsonRMMAgentService"
-                        Name="WatsonRMMAgent"
-                        DisplayName="Watson RMM Agent"
-                        Description="Watson Remote Monitoring and Management Agent"
-                        Type="ownProcess"
-                        Start="auto"
-                        ErrorControl="normal"
-                        Account="LocalSystem"
-                        Interactive="no"
-                        Vital="no" />
-        
-        <!-- Start service after installation -->
-        <ServiceControl Id="StartWatsonRMMAgent"
-                        Name="WatsonRMMAgent"
-                        Start="install"
-                        Stop="both"
-                        Remove="uninstall"
-                        Wait="no" />
       </Component>
       
       <!-- Config file -->
@@ -70,6 +50,13 @@
       <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
         <File Id="SetupBat" 
               Source="$(var.SourceDir)\setup.bat" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Setup service VBS script -->
+      <Component Id="SetupServiceVBS" Guid="C7B8D9E0-F1A2-3456-BCDE-F789012345AB">
+        <File Id="SetupServiceVbs" 
+              Source="$(var.SourceDir)\setup-service.vbs" 
               KeyPath="yes" />
       </Component>
 
@@ -102,11 +89,24 @@
       </Component>
     </DirectoryRef>
 
+    <!-- Custom Action - Execute VBS script to install service -->
+    <CustomAction Id="SetupService"
+                  FileKey="SetupServiceVbs"
+                  ExeCommand=""
+                  Execute="immediate"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
+
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
       <ComponentRef Id="MainExecutable" />
       <ComponentRef Id="ConfigFile" />
       <ComponentRef Id="SetupBatchFile" />
+      <ComponentRef Id="SetupServiceVBS" />
       <ComponentRef Id="InstallBatchFile" />
       <ComponentRef Id="UninstallBatchFile" />
       <ComponentRef Id="NSSMExecutable" />
