@@ -38,6 +38,10 @@ jobs:
           if (Test-Path "$installerPath\service") {
             Remove-Item "$installerPath\service" -Recurse -Force
           }
+          
+          if (Test-Path "$installerPath\ServiceFiles.wxs") {
+            Remove-Item "$installerPath\ServiceFiles.wxs" -Force
+          }
       
       - name: Create service directory structure
         shell: powershell
@@ -59,29 +63,78 @@ jobs:
           
           $fileCount = (Get-ChildItem -Path $servicePath -Recurse -File).Count
           Write-Host "Service directory ready with $fileCount files"
+          Write-Host "Directory size: $('{0:N2}' -f ((Get-ChildItem -Path $servicePath -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB)) MB"
       
-      - name: Compile Product.wxs
+      - name: Harvest service directory with Heat
+        shell: cmd
+        working-directory: agent/installer
+        run: |
+          echo Starting heat.exe harvest...
+          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr INSTALLFOLDER -cg ServiceFilesGroup -var var.ServiceSourceDir -v
+          
+          if errorlevel 1 (
+            echo ERROR: Heat.exe failed with error code !errorlevel!
+            echo Checking if service directory exists:
+            dir service
+            exit /b 1
+          )
+          
+          echo Heat.exe completed successfully
+          echo ServiceFiles.wxs created:
+          dir ServiceFiles.wxs
+          echo.
+          echo First 50 lines of ServiceFiles.wxs:
+          for /f "tokens=*" %%A in ('more +1 ServiceFiles.wxs ^| findstr /N "." ^| findstr /C:"^1:" /C:"^2:" /C:"^3:" /C:"^4:" /C:"^5:"') do echo %%A
+      
+      - name: Compile WiX sources
         shell: cmd
         working-directory: agent/installer
         run: |
           if exist obj rmdir /s /q obj
           mkdir obj
-          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=.
-          if errorlevel 1 exit /b 1
+          
+          echo Compiling Product.wxs...
+          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service -v
+          if errorlevel 1 (
+            echo ERROR: Product.wxs compilation failed
+            exit /b 1
+          )
+          
+          echo Compiling ServiceFiles.wxs...
+          candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service -v
+          if errorlevel 1 (
+            echo ERROR: ServiceFiles.wxs compilation failed
+            exit /b 1
+          )
+          
+          echo All sources compiled successfully
       
       - name: Link MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension -dcl:high -reusecab
-          if errorlevel 1 exit /b 1
+          echo Linking MSI...
+          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab -v
+          if errorlevel 1 (
+            echo ERROR: MSI linking failed
+            exit /b 1
+          )
+          echo MSI linked successfully
       
-      - name: Verify MSI
+      - name: Verify MSI was created
         shell: cmd
         working-directory: agent/installer
         run: |
-          if not exist WatsonRMMAgent.msi exit /b 1
+          if not exist WatsonRMMAgent.msi (
+            echo ERROR: MSI not created
+            exit /b 1
+          )
+          
+          echo MSI created successfully:
           dir WatsonRMMAgent.msi
+          
+          echo.
+          echo MSI file size should be 5-10 MB (includes node_modules)
       
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
