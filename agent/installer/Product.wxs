@@ -82,7 +82,7 @@
       </Component>
     </DirectoryRef>
 
-    <!-- Custom Action - Call setup batch file after installation -->
+    <!-- Custom Action - Call setup batch file after files are installed -->
     <CustomAction Id="QuietExecuteSetup"
                   Directory="INSTALLFOLDER"
                   ExeCommand="cmd.exe /C &quot;setup.bat&gt;&gt;nul 2&gt;&amp;1&quot;"
@@ -91,7 +91,7 @@
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="QuietExecuteSetup" After="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="QuietExecuteSetup" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
