@@ -27,10 +27,10 @@ jobs:
           npm prune --production
           dir node_modules
       
-      - name: Install pkg globally
-        run: npm install -g pkg@5.11.5
+      - name: Install pkg globally (latest)
+        run: npm install -g pkg
       
-      - name: Compile agent to EXE (aggressive optimization)
+      - name: Compile agent to EXE (optimized)
         working-directory: agent
         run: |
           pkg service.js --targets win-x64 --output peng-rmm-agent.exe --compress Gzip --strip
