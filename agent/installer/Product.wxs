@@ -60,7 +60,7 @@
       </Component>
     </DirectoryRef>
 
-    <!-- Custom action: Copy service directory (uses Directory attribute) -->
+    <!-- Custom action: Copy service directory -->
     <CustomAction Id="CopyServiceDirectory" 
                   Directory="INSTALLFOLDER"
                   ExeCommand='cmd.exe /c "xcopy /Y /E /I "[SourceDir]service" "[INSTALLFOLDER]service"'
@@ -68,7 +68,7 @@
                   Impersonate="no"
                   Return="check" />
 
-    <!-- Custom action: Setup service (uses FileKey to reference install-service.bat) -->
+    <!-- Custom action: Setup service -->
     <CustomAction Id="SetupServiceAction" 
                   FileKey="InstallServiceBatFile"
                   ExeCommand=''
@@ -77,7 +77,7 @@
                   Return="ignore" />
 
     <InstallExecuteSequence>
-      <Custom Action="CopyServiceDirectory" After="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="CopyServiceDirectory" After="InstallFiles">NOT Installed</Custom>
       <Custom Action="SetupServiceAction" After="CopyServiceDirectory">NOT Installed</Custom>
     </InstallExecuteSequence>
 
