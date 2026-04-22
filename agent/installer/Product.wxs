@@ -54,9 +54,13 @@
         <File Id="LicenseRtfFile" Source="$(var.SourceDir)\license.rtf" KeyPath="yes" />
       </Component>
 
-      <!-- Service directory and files -->
+      <!-- Service directory and core files -->
       <Directory Id="ServiceDirectory" Name="service">
-        <Component Id="ServiceJs" Guid="77777777-7777-7777-7777-777777777777">
+        <Component Id="ServiceDirectory_Folder" Guid="77777777-7777-7777-7777-777777777777">
+          <CreateFolder />
+        </Component>
+
+        <Component Id="ServiceJs" Guid="78787879-7878-7878-7878-787878787878">
           <File Id="ServiceJsFile" Source="$(var.SourceDir)\service\service.js" KeyPath="yes" />
         </Component>
 
@@ -71,24 +75,30 @@
         <Component Id="RunServiceBat" Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA">
           <File Id="RunServiceBatFile" Source="$(var.SourceDir)\service\run-service.bat" KeyPath="yes" />
         </Component>
-
-        <!-- Node modules directory -->
-        <Component Id="NodeModules" Guid="BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB">
-          <CreateFolder />
-        </Component>
       </Directory>
     </DirectoryRef>
 
-    <!-- Custom Action - Run setup VBS -->
+    <!-- Custom Actions for copying service files -->
+    <CustomAction Id="CopyServiceFilesAction" 
+                  BinaryKey="ServiceCopyBinary"
+                  DllEntry="CopyServiceFiles"
+                  Execute="deferred"
+                  Return="check"
+                  Impersonate="no" />
+
     <CustomAction Id="SetupService"
                   FileKey="SetupServiceVbsFile"
                   ExeCommand=""
-                  Execute="immediate"
+                  Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
 
+    <!-- Binary for custom action (inline PowerShell script) -->
+    <Binary Id="ServiceCopyBinary" SourcePath="service_copy.dll" />
+
     <InstallExecuteSequence>
-      <Custom Action="SetupService" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="CopyServiceFilesAction" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="SetupService" After="CopyServiceFilesAction">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
@@ -99,11 +109,11 @@
       <ComponentRef Id="NssmExe" />
       <ComponentRef Id="SetupServiceVbs" />
       <ComponentRef Id="LicenseFile" />
+      <ComponentRef Id="ServiceDirectory_Folder" />
       <ComponentRef Id="ServiceJs" />
       <ComponentRef Id="ServicePackageJson" />
       <ComponentRef Id="ServiceConfigJson" />
       <ComponentRef Id="RunServiceBat" />
-      <ComponentRef Id="NodeModules" />
     </Feature>
 
     <!-- UI -->
