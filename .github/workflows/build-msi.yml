@@ -31,13 +31,11 @@ jobs:
         run: |
           $installerPath = "agent\installer"
           
-          # Remove old executable
           if (Test-Path "$installerPath\peng-rmm-agent.exe") {
             Remove-Item "$installerPath\peng-rmm-agent.exe" -Force
             Write-Host "Removed old peng-rmm-agent.exe"
           }
           
-          # Remove old service directory if exists
           if (Test-Path "$installerPath\service") {
             Remove-Item "$installerPath\service" -Recurse -Force
             Write-Host "Removed old service directory"
@@ -49,33 +47,22 @@ jobs:
           $installerPath = "agent\installer"
           $servicePath = "$installerPath\service"
           
-          # Create service directory
           New-Item -ItemType Directory -Path $servicePath -Force | Out-Null
           
-          # Copy service files
           Copy-Item "agent\service.js" "$servicePath\" -Force
           Copy-Item "agent\package.json" "$servicePath\" -Force
           Copy-Item "agent\config.json" "$servicePath\" -Force
           
           Write-Host "Copied service files to $servicePath"
           
-          # Copy node_modules recursively
           Write-Host "Copying node_modules (this may take a moment)..."
           Copy-Item "agent\node_modules" "$servicePath\node_modules" -Recurse -Force
           Write-Host "node_modules copied successfully"
           
-          # Create wrapper batch file
-          $batContent = @"
-@echo off
-setlocal enabledelayedexpansion
-cd /d %~dp0
-node.exe service.js
-"@
-          
+          $batContent = "@echo off`r`nsetlocal enabledelayedexpansion`r`ncd /d %~dp0`r`nnode.exe service.js"
           Set-Content "$servicePath\run-service.bat" $batContent -Encoding ASCII
           Write-Host "Created run-service.bat"
           
-          # Verify structure
           Write-Host "Service directory structure:"
           Get-ChildItem -Path $servicePath -Recurse | Select-Object -First 20 | Format-Table FullName
           
