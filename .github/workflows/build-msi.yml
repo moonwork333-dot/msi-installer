@@ -26,42 +26,32 @@ jobs:
           npm install --production --omit=optional
           npm prune --production
       
-      - name: Clean installer directory
+      - name: Prepare installer files
         shell: powershell
         run: |
           $installerPath = "agent\installer"
+          $sourceServicePath = "agent\service"
+          $targetServicePath = "$installerPath\service-source"
           
-          if (Test-Path "$installerPath\peng-rmm-agent.exe") {
-            Remove-Item "$installerPath\peng-rmm-agent.exe" -Force
+          # Remove old service source if exists
+          if (Test-Path $targetServicePath) {
+            Remove-Item $targetServicePath -Recurse -Force
           }
           
-          if (Test-Path "$installerPath\service") {
-            Remove-Item "$installerPath\service" -Recurse -Force
-          }
-      
-      - name: Create service directory with all node_modules
-        shell: powershell
-        run: |
-          $installerPath = "agent\installer"
-          $servicePath = "$installerPath\service"
+          # Copy service directory to installer for packaging
+          New-Item -ItemType Directory -Path $targetServicePath -Force | Out-Null
+          Copy-Item "agent\service.js" "$targetServicePath\" -Force
+          Copy-Item "agent\package.json" "$targetServicePath\" -Force
+          Copy-Item "agent\config.json" "$targetServicePath\" -Force
           
-          New-Item -ItemType Directory -Path $servicePath -Force | Out-Null
+          Write-Host "Copying node_modules to service-source..."
+          Copy-Item "agent\node_modules" "$targetServicePath\node_modules" -Recurse -Force
           
-          Copy-Item "agent\service.js" "$servicePath\" -Force
-          Copy-Item "agent\package.json" "$servicePath\" -Force
-          Copy-Item "agent\config.json" "$servicePath\" -Force
-          
-          Write-Host "Copying node_modules..."
-          Copy-Item "agent\node_modules" "$servicePath\node_modules" -Recurse -Force
-          
-          $batContent = "@echo off`r`nsetlocal enabledelayedexpansion`r`ncd /d %~dp0`r`nnode.exe service.js"
-          Set-Content "$servicePath\run-service.bat" $batContent -Encoding ASCII
-          
-          $fileCount = (Get-ChildItem -Path $servicePath -Recurse -File).Count
-          $sizeBytes = (Get-ChildItem -Path $servicePath -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $fileCount = (Get-ChildItem -Path $targetServicePath -Recurse -File).Count
+          $sizeBytes = (Get-ChildItem -Path $targetServicePath -Recurse -File | Measure-Object -Property Length -Sum).Sum
           $sizeMB = [Math]::Round($sizeBytes / 1MB, 2)
           
-          Write-Host "Service directory created: $fileCount files, $sizeMB MB"
+          Write-Host "Service files prepared: $fileCount files, $sizeMB MB"
       
       - name: Compile Product.wxs
         shell: cmd
@@ -86,15 +76,11 @@ jobs:
             exit /b 1
           )
       
-      - name: Verify MSI was created
+      - name: Verify MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          if not exist WatsonRMMAgent.msi (
-            echo ERROR: MSI not created
-            exit /b 1
-          )
-          
+          if not exist WatsonRMMAgent.msi exit /b 1
           dir WatsonRMMAgent.msi
       
       - name: Upload MSI artifact
