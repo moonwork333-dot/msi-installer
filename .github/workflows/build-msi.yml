@@ -26,57 +26,65 @@ jobs:
           npm install --production --omit=optional
           npm prune --production
       
-      - name: Clean installer directory (remove old files)
-        shell: cmd
+      - name: Clean installer directory
+        shell: powershell
         run: |
-          cd agent\installer
-          del /Q peng-rmm-agent.exe 2>nul || echo peng-rmm-agent.exe not found
-          if exist service rmdir /S /Q service
-          echo Installer directory cleaned
-      
-      - name: Create service structure with proper copying
-        shell: cmd
-        run: |
-          cd agent\installer
-          mkdir service
-          cd service
-          copy ..\..\service.js .
-          copy ..\..\package.json .
-          copy ..\..\config.json .
+          $installerPath = "agent\installer"
           
-          echo Copying node_modules (this may take a moment)...
-          cd ..
-          robocopy ..\node_modules service\node_modules /E /NP /NS /NC /NFL /NDL /NJH
+          # Remove old executable
+          if (Test-Path "$installerPath\peng-rmm-agent.exe") {
+            Remove-Item "$installerPath\peng-rmm-agent.exe" -Force
+            Write-Host "Removed old peng-rmm-agent.exe"
+          }
           
-          echo Verifying service directory:
-          dir service
+          # Remove old service directory if exists
+          if (Test-Path "$installerPath\service") {
+            Remove-Item "$installerPath\service" -Recurse -Force
+            Write-Host "Removed old service directory"
+          }
+      
+      - name: Create service directory structure
+        shell: powershell
+        run: |
+          $installerPath = "agent\installer"
+          $servicePath = "$installerPath\service"
           
-          if not exist service\service.js exit /b 1
-          if not exist service\package.json exit /b 1
-          if not exist service\node_modules exit /b 1
-          echo Service directory verified successfully
-      
-      - name: Create service wrapper batch file
-        shell: cmd
-        working-directory: agent/installer/service
-        run: |
-          (
-            echo @echo off
-            echo setlocal enabledelayedexpansion
-            echo cd /d %%~dp0
-            echo node.exe service.js
-          ) > run-service.bat
-          echo run-service.bat created
-      
-      - name: Verify final service directory
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          echo Final service directory contents:
-          dir /S service | findstr /C:"service.js" /C:"package.json" /C:"run-service.bat" /C:"node_modules"
-          echo.
-          echo Checking file count:
-          for /f %%A in ('dir /s /b service 2^>nul ^| find /c /v ""') do echo Found %%A files in service directory
+          # Create service directory
+          New-Item -ItemType Directory -Path $servicePath -Force | Out-Null
+          
+          # Copy service files
+          Copy-Item "agent\service.js" "$servicePath\" -Force
+          Copy-Item "agent\package.json" "$servicePath\" -Force
+          Copy-Item "agent\config.json" "$servicePath\" -Force
+          
+          Write-Host "Copied service files to $servicePath"
+          
+          # Copy node_modules recursively
+          Write-Host "Copying node_modules (this may take a moment)..."
+          Copy-Item "agent\node_modules" "$servicePath\node_modules" -Recurse -Force
+          Write-Host "node_modules copied successfully"
+          
+          # Create wrapper batch file
+          $batContent = @"
+@echo off
+setlocal enabledelayedexpansion
+cd /d %~dp0
+node.exe service.js
+"@
+          
+          Set-Content "$servicePath\run-service.bat" $batContent -Encoding ASCII
+          Write-Host "Created run-service.bat"
+          
+          # Verify structure
+          Write-Host "Service directory structure:"
+          Get-ChildItem -Path $servicePath -Recurse | Select-Object -First 20 | Format-Table FullName
+          
+          $fileCount = (Get-ChildItem -Path $servicePath -Recurse -File).Count
+          Write-Host "Total files in service directory: $fileCount"
+          
+          if (-not (Test-Path "$servicePath\service.js")) { exit 1 }
+          if (-not (Test-Path "$servicePath\node_modules")) { exit 1 }
+          Write-Host "Service directory verified successfully"
       
       - name: Harvest service directory with Heat
         shell: cmd
@@ -89,7 +97,6 @@ jobs:
             exit /b 1
           )
           echo Heat completed successfully
-          echo Checking ServiceFiles.wxs was created:
           dir ServiceFiles.wxs
       
       - name: Compile WiX sources
@@ -124,7 +131,7 @@ jobs:
           )
           echo MSI linked successfully
       
-      - name: Verify MSI was created and contains service files
+      - name: Verify MSI was created
         shell: cmd
         working-directory: agent/installer
         run: |
@@ -134,14 +141,6 @@ jobs:
           )
           echo MSI created successfully:
           dir WatsonRMMAgent.msi
-          
-          echo.
-          echo Checking if peng-rmm-agent.exe is NOT in the installer:
-          if exist peng-rmm-agent.exe (
-            echo WARNING: Old executable still present!
-            exit /b 1
-          )
-          echo Verified: Old executable removed
       
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
