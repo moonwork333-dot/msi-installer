@@ -33,12 +33,10 @@ jobs:
           
           if (Test-Path "$installerPath\peng-rmm-agent.exe") {
             Remove-Item "$installerPath\peng-rmm-agent.exe" -Force
-            Write-Host "Removed old peng-rmm-agent.exe"
           }
           
           if (Test-Path "$installerPath\service") {
             Remove-Item "$installerPath\service" -Recurse -Force
-            Write-Host "Removed old service directory"
           }
       
       - name: Create service directory structure
@@ -53,80 +51,36 @@ jobs:
           Copy-Item "agent\package.json" "$servicePath\" -Force
           Copy-Item "agent\config.json" "$servicePath\" -Force
           
-          Write-Host "Copied service files to $servicePath"
-          
-          Write-Host "Copying node_modules (this may take a moment)..."
+          Write-Host "Copying node_modules..."
           Copy-Item "agent\node_modules" "$servicePath\node_modules" -Recurse -Force
-          Write-Host "node_modules copied successfully"
           
           $batContent = "@echo off`r`nsetlocal enabledelayedexpansion`r`ncd /d %~dp0`r`nnode.exe service.js"
           Set-Content "$servicePath\run-service.bat" $batContent -Encoding ASCII
-          Write-Host "Created run-service.bat"
-          
-          Write-Host "Service directory structure:"
-          Get-ChildItem -Path $servicePath -Recurse | Select-Object -First 20 | Format-Table FullName
           
           $fileCount = (Get-ChildItem -Path $servicePath -Recurse -File).Count
-          Write-Host "Total files in service directory: $fileCount"
-          
-          if (-not (Test-Path "$servicePath\service.js")) { exit 1 }
-          if (-not (Test-Path "$servicePath\node_modules")) { exit 1 }
-          Write-Host "Service directory verified successfully"
+          Write-Host "Service directory ready with $fileCount files"
       
-      - name: Harvest service directory with Heat
-        shell: cmd
-        working-directory: agent/installer
-        run: |
-          echo Harvesting service directory...
-          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr INSTALLFOLDER -cg ServiceFilesGroup -var var.ServiceSourceDir
-          if errorlevel 1 (
-            echo ERROR: Heat.exe failed
-            exit /b 1
-          )
-          echo Heat completed successfully
-          dir ServiceFiles.wxs
-      
-      - name: Compile WiX sources
+      - name: Compile Product.wxs
         shell: cmd
         working-directory: agent/installer
         run: |
           if exist obj rmdir /s /q obj
           mkdir obj
-          echo Compiling Product.wxs...
-          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service
-          if errorlevel 1 (
-            echo ERROR: Failed to compile Product.wxs
-            exit /b 1
-          )
-          echo Compiling ServiceFiles.wxs...
-          candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service
-          if errorlevel 1 (
-            echo ERROR: Failed to compile ServiceFiles.wxs
-            exit /b 1
-          )
-          echo All WiX sources compiled successfully
+          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=.
+          if errorlevel 1 exit /b 1
       
-      - name: Link MSI with service files
+      - name: Link MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Linking MSI...
-          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab
-          if errorlevel 1 (
-            echo ERROR: Failed to link MSI
-            exit /b 1
-          )
-          echo MSI linked successfully
+          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension -dcl:high -reusecab
+          if errorlevel 1 exit /b 1
       
-      - name: Verify MSI was created
+      - name: Verify MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          if not exist WatsonRMMAgent.msi (
-            echo ERROR: MSI not created
-            exit /b 1
-          )
-          echo MSI created successfully:
+          if not exist WatsonRMMAgent.msi exit /b 1
           dir WatsonRMMAgent.msi
       
       - name: Upload MSI artifact
