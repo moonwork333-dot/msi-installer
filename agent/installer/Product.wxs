@@ -32,11 +32,30 @@
 
     <!-- Product Components -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <!-- Main executable -->
+      <!-- Main executable - This will be registered as a service -->
       <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
         <File Id="AgentExe" 
               Source="$(var.SourceDir)\peng-rmm-agent.exe" 
               KeyPath="yes" />
+        
+        <!-- WiX native service installation -->
+        <ServiceInstall Id="WatsonRMMAgentService"
+                        Name="WatsonRMMAgent"
+                        DisplayName="Watson RMM Agent"
+                        Description="Watson Remote Monitoring and Management Agent"
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Interactive="no"
+                        Vital="yes" />
+        
+        <!-- Start service after installation -->
+        <ServiceControl Id="StartWatsonRMMAgent"
+                        Name="WatsonRMMAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
       </Component>
       
       <!-- Config file -->
@@ -46,7 +65,7 @@
               KeyPath="yes" />
       </Component>
 
-      <!-- Setup script (orchestrates service installation) -->
+      <!-- Setup script -->
       <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
         <File Id="SetupBat" 
               Source="$(var.SourceDir)\setup.bat" 
@@ -67,7 +86,7 @@
               KeyPath="yes" />
       </Component>
 
-      <!-- NSSM executable -->
+      <!-- NSSM executable (for reference, not needed with WiX ServiceInstall) -->
       <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
         <File Id="NssmExe" 
               Source="$(var.SourceDir)\nssm.exe" 
@@ -81,18 +100,6 @@
               KeyPath="yes" />
       </Component>
     </DirectoryRef>
-
-    <!-- Custom Action - Run setup.bat in UI sequence with admin privileges -->
-    <CustomAction Id="ExecuteSetup"
-                  FileKey="SetupBat"
-                  ExeCommand=""
-                  Execute="immediate"
-                  Return="ignore"
-                  Impersonate="no" />
-
-    <InstallExecuteSequence>
-      <Custom Action="ExecuteSetup" After="InstallFiles">NOT Installed</Custom>
-    </InstallExecuteSequence>
 
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
