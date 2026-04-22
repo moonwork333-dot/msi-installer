@@ -32,9 +32,11 @@ jobs:
           mkdir agent\installer\service
           copy agent\service.js agent\installer\service\
           copy agent\package.json agent\installer\service\
-          copy agent\package-lock.json agent\installer\service\
-          xcopy agent\node_modules agent\installer\service\node_modules\ /E /I /Y
+          copy agent\package-lock.json agent\installer\service\ 2>nul || echo package-lock.json not found
+          echo Copying node_modules...
+          xcopy agent\node_modules agent\installer\service\node_modules\ /E /I /Y /Q
           copy agent\config.json agent\installer\service\
+          echo Service directory created successfully
       
       - name: Create service wrapper batch file
         shell: cmd
@@ -42,47 +44,69 @@ jobs:
         run: |
           (
             echo @echo off
+            echo setlocal enabledelayedexpansion
             echo cd /d %%~dp0
             echo node.exe service.js
           ) > run-service.bat
+          echo run-service.bat created
       
-      - name: Verify service directory structure
+      - name: Verify service directory has files
         shell: cmd
         working-directory: agent/installer/service
         run: |
           echo Service directory contents:
           dir
           echo.
-          echo Node modules:
-          dir node_modules | head -20
+          echo Checking for key files:
+          if not exist service.js exit /b 1
+          if not exist package.json exit /b 1
+          if not exist run-service.bat exit /b 1
+          if not exist node_modules exit /b 1
+          echo All files present
       
       - name: Harvest service directory with Heat
         shell: cmd
         working-directory: agent/installer
         run: |
-          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr ServiceDir -cg ServiceFilesGroup -var var.ServiceSourceDir
-          if errorlevel 1 exit /b 1
-          echo Heat harvest completed
+          echo Harvesting service directory...
+          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr INSTALLFOLDER -cg ServiceFilesGroup -var var.ServiceSourceDir
+          if errorlevel 1 (
+            echo ERROR: Heat.exe failed
+            exit /b 1
+          )
+          echo Heat completed successfully
       
-      - name: Compile Product.wxs and ServiceFiles.wxs
+      - name: Compile WiX sources
         shell: cmd
         working-directory: agent/installer
         run: |
           if exist obj rmdir /s /q obj
           mkdir obj
+          echo Compiling Product.wxs...
           candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service
-          if errorlevel 1 exit /b 1
+          if errorlevel 1 (
+            echo ERROR: Failed to compile Product.wxs
+            exit /b 1
+          )
+          echo Compiling ServiceFiles.wxs...
           candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service
-          if errorlevel 1 exit /b 1
-          echo Candle compilation completed
+          if errorlevel 1 (
+            echo ERROR: Failed to compile ServiceFiles.wxs
+            exit /b 1
+          )
+          echo All WiX sources compiled successfully
       
       - name: Link MSI with service files
         shell: cmd
         working-directory: agent/installer
         run: |
+          echo Linking MSI...
           light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab
-          if errorlevel 1 exit /b 1
-          echo Light linking completed
+          if errorlevel 1 (
+            echo ERROR: Failed to link MSI
+            exit /b 1
+          )
+          echo MSI linked successfully
       
       - name: Verify MSI was created
         shell: cmd
