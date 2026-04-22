@@ -82,16 +82,16 @@
       </Component>
     </DirectoryRef>
 
-    <!-- Custom Action - Call setup batch file after files are installed -->
-    <CustomAction Id="QuietExecuteSetup"
-                  Directory="INSTALLFOLDER"
-                  ExeCommand="cmd.exe /C &quot;setup.bat&gt;&gt;nul 2&gt;&amp;1&quot;"
-                  Execute="deferred"
+    <!-- Custom Action - Run setup.bat in UI sequence with admin privileges -->
+    <CustomAction Id="ExecuteSetup"
+                  FileKey="SetupBat"
+                  ExeCommand=""
+                  Execute="immediate"
                   Return="ignore"
                   Impersonate="no" />
 
     <InstallExecuteSequence>
-      <Custom Action="QuietExecuteSetup" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="ExecuteSetup" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
 
     <!-- Features -->
