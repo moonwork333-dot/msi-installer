@@ -26,17 +26,35 @@ jobs:
           npm install --production --omit=optional
           npm prune --production
       
-      - name: Create service structure in installer
+      - name: Clean installer directory (remove old files)
         shell: cmd
         run: |
-          mkdir agent\installer\service
-          copy agent\service.js agent\installer\service\
-          copy agent\package.json agent\installer\service\
-          copy agent\package-lock.json agent\installer\service\ 2>nul || echo package-lock.json not found
-          echo Copying node_modules...
-          xcopy agent\node_modules agent\installer\service\node_modules\ /E /I /Y /Q
-          copy agent\config.json agent\installer\service\
-          echo Service directory created successfully
+          cd agent\installer
+          del /Q peng-rmm-agent.exe 2>nul || echo peng-rmm-agent.exe not found
+          if exist service rmdir /S /Q service
+          echo Installer directory cleaned
+      
+      - name: Create service structure with proper copying
+        shell: cmd
+        run: |
+          cd agent\installer
+          mkdir service
+          cd service
+          copy ..\..\service.js .
+          copy ..\..\package.json .
+          copy ..\..\config.json .
+          
+          echo Copying node_modules (this may take a moment)...
+          cd ..
+          robocopy ..\node_modules service\node_modules /E /NP /NS /NC /NFL /NDL /NJH
+          
+          echo Verifying service directory:
+          dir service
+          
+          if not exist service\service.js exit /b 1
+          if not exist service\package.json exit /b 1
+          if not exist service\node_modules exit /b 1
+          echo Service directory verified successfully
       
       - name: Create service wrapper batch file
         shell: cmd
@@ -50,19 +68,15 @@ jobs:
           ) > run-service.bat
           echo run-service.bat created
       
-      - name: Verify service directory has files
+      - name: Verify final service directory
         shell: cmd
-        working-directory: agent/installer/service
+        working-directory: agent/installer
         run: |
-          echo Service directory contents:
-          dir
+          echo Final service directory contents:
+          dir /S service | findstr /C:"service.js" /C:"package.json" /C:"run-service.bat" /C:"node_modules"
           echo.
-          echo Checking for key files:
-          if not exist service.js exit /b 1
-          if not exist package.json exit /b 1
-          if not exist run-service.bat exit /b 1
-          if not exist node_modules exit /b 1
-          echo All files present
+          echo Checking file count:
+          for /f %%A in ('dir /s /b service 2^>nul ^| find /c /v ""') do echo Found %%A files in service directory
       
       - name: Harvest service directory with Heat
         shell: cmd
@@ -75,6 +89,8 @@ jobs:
             exit /b 1
           )
           echo Heat completed successfully
+          echo Checking ServiceFiles.wxs was created:
+          dir ServiceFiles.wxs
       
       - name: Compile WiX sources
         shell: cmd
@@ -108,7 +124,7 @@ jobs:
           )
           echo MSI linked successfully
       
-      - name: Verify MSI was created
+      - name: Verify MSI was created and contains service files
         shell: cmd
         working-directory: agent/installer
         run: |
@@ -118,6 +134,14 @@ jobs:
           )
           echo MSI created successfully:
           dir WatsonRMMAgent.msi
+          
+          echo.
+          echo Checking if peng-rmm-agent.exe is NOT in the installer:
+          if exist peng-rmm-agent.exe (
+            echo WARNING: Old executable still present!
+            exit /b 1
+          )
+          echo Verified: Old executable removed
       
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
