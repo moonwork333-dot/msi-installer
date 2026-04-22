@@ -1,24 +1,18 @@
-// CRITICAL: Startup marker BEFORE anything else
+// CRITICAL: First line - write startup marker BEFORE any requires
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 
-// Write startup marker immediately
+// Try to write startup marker
 const fallbackLog = "C:\\watson-agent-startup.log";
 try {
-  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] Process started - PID ${process.pid} - Node ${process.version}\n`);
+  fs.appendFileSync(fallbackLog, `[${new Date().toISOString()}] Process started - Node ${process.version}\n`);
 } catch (e) {
   // Ignore
 }
 
-// Set working directory to script directory for service mode
-if (process.env.NSSM_CONTROLLER_PROCESS) {
-  const scriptDir = path.dirname(process.execPath);
-  process.chdir(scriptDir);
-}
-
 const signalR = require("@microsoft/signalr");
 const { HttpTransportType } = require("@microsoft/signalr");
+const os = require("os");
 const { exec } = require("child_process");
 
 // Configuration
@@ -29,9 +23,7 @@ let CONFIG = {
 
 const possibleConfigPaths = [
   path.join(path.dirname(process.execPath), "config.json"),
-  "C:\\Program Files\\Watson RMM Agent\\config.json",
   path.join(process.cwd(), "config.json"),
-  path.join(__dirname, "config.json"),
 ];
 
 let configLoaded = false;
@@ -39,8 +31,7 @@ for (const configPath of possibleConfigPaths) {
   try {
     if (fs.existsSync(configPath)) {
       const configFile = fs.readFileSync(configPath, "utf8");
-      const loadedConfig = JSON.parse(configFile);
-      CONFIG = { ...CONFIG, ...loadedConfig };
+      CONFIG = { ...CONFIG, ...JSON.parse(configFile) };
       configLoaded = true;
       break;
     }
@@ -57,12 +48,12 @@ const LOG_DIR = process.env.PROGRAMDATA
   ? path.join(process.env.PROGRAMDATA, "WatsonRMMAgent")
   : path.join(process.cwd(), "logs");
 
-if (!fs.existsSync(LOG_DIR)) {
-  try {
+try {
+  if (!fs.existsSync(LOG_DIR)) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
-  } catch (e) {
-    // Ignore
   }
+} catch (e) {
+  // Ignore
 }
 
 const LOG_FILE = path.join(LOG_DIR, "agent.log");
@@ -70,30 +61,21 @@ const LOG_FILE = path.join(LOG_DIR, "agent.log");
 function log(message) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}`;
-
   console.log(logMessage);
-
   try {
     fs.appendFileSync(LOG_FILE, logMessage + "\n");
   } catch (error) {
-    // Ignore log write errors
+    // Ignore
   }
 }
 
-// Catch all unhandled errors
 process.on("uncaughtException", (error) => {
-  log(`[FATAL] Uncaught exception: ${error.message}`);
+  log(`[FATAL] ${error.message}`);
   log(error.stack);
-  try {
-    fs.appendFileSync(fallbackLog, `[FATAL] ${error.message}\n${error.stack}\n`);
-  } catch (e) {}
 });
 
 process.on("unhandledRejection", (reason) => {
-  log(`[ERROR] Unhandled rejection: ${reason}`);
-  try {
-    fs.appendFileSync(fallbackLog, `[ERROR] Unhandled rejection: ${reason}\n`);
-  } catch (e) {}
+  log(`[ERROR] ${reason}`);
 });
 
 class AgentService {
@@ -101,38 +83,18 @@ class AgentService {
     this.connection = null;
     this.isRunning = false;
     this.isConnected = false;
-    this.reconnectAttempts = 0;
   }
 
   async start() {
-    try {
-      log("[Agent] Starting Watson RMM Agent...");
-      log(`[Agent] Agent ID: ${AGENT_ID}`);
-      log(`[Agent] Hub URL: ${HUB_URL}`);
-      log(`[Agent] Node: ${process.version}`);
-      log(`[Agent] Platform: ${process.platform} ${os.arch()}`);
-      log(`[Agent] Working Directory: ${process.cwd()}`);
-      log(`[Agent] Log Directory: ${LOG_DIR}`);
-      log(`[Agent] Config Loaded: ${configLoaded}`);
+    log("[Agent] Starting Watson RMM Agent...");
+    log(`[Agent] ID: ${AGENT_ID}`);
+    log(`[Agent] Hub: ${HUB_URL}`);
+    this.isRunning = true;
+    this.connect();
 
-      this.isRunning = true;
-      
-      // Start connection with a slight delay to ensure proper initialization
-      setTimeout(() => this.connect(), 500);
-
-      // Keep process alive with heartbeat
-      this.heartbeatInterval = setInterval(() => {
-        if (this.isConnected) {
-          log("[Heartbeat] Connected");
-        } else {
-          log("[Heartbeat] Waiting for connection...");
-        }
-      }, 30000);
-    } catch (error) {
-      log(`[FATAL] Start failed: ${error.message}`);
-      log(error.stack);
-      setTimeout(() => this.start(), 5000);
-    }
+    this.heartbeatInterval = setInterval(() => {
+      log(this.isConnected ? "[Heartbeat] OK" : "[Heartbeat] Reconnecting");
+    }, 30000);
   }
 
   async connect() {
@@ -158,46 +120,41 @@ class AgentService {
       this.connection.serverTimeoutInMilliseconds = 40000;
       this.connection.keepAliveInterval = 15000;
 
-      this.connection.onreconnecting((error) => {
-        log("[Connection] Reconnecting... " + (error?.message || ""));
+      this.connection.onreconnecting(() => {
+        log("[Connection] Reconnecting...");
         this.isConnected = false;
       });
 
-      this.connection.onreconnected((connectionId) => {
-        log("[Connection] Reconnected with ID: " + connectionId);
+      this.connection.onreconnected(() => {
+        log("[Connection] Reconnected");
         this.isConnected = true;
-        this.reconnectAttempts = 0;
         this.registerAgent();
       });
 
-      this.connection.onclose((error) => {
-        log("[Connection] Closed: " + (error?.message || ""));
+      this.connection.onclose(() => {
+        log("[Connection] Closed");
         this.isConnected = false;
         if (this.isRunning) {
-          this.reconnectAttempts++;
-          const delay = Math.min(CONFIG.reconnectInterval * this.reconnectAttempts, 60000);
-          log(`[Connection] Retrying in ${delay}ms (attempt ${this.reconnectAttempts})`);
-          setTimeout(() => this.connect(), delay);
+          setTimeout(() => this.connect(), CONFIG.reconnectInterval);
         }
       });
 
       this.connection.on("ExecuteCommand", async (cmd) => {
-        log("[Command] Executing: " + cmd);
+        log("[Command] " + cmd);
         const result = await this.executeCommand(cmd);
         try {
           await this.connection.invoke("CommandResult", os.hostname(), cmd, result);
         } catch (error) {
-          log("[Command] Failed to send result: " + error.message);
+          log("[Command] Send failed: " + error.message);
         }
       });
 
       this.connection.on("GetSystemInfo", async () => {
-        log("[SystemInfo] Request received");
-        const sysInfo = this.getSystemInfo();
+        log("[SystemInfo] Sending...");
         try {
-          await this.connection.invoke("SystemInfo", os.hostname(), sysInfo);
+          await this.connection.invoke("SystemInfo", os.hostname(), this.getSystemInfo());
         } catch (error) {
-          log("[SystemInfo] Failed to send: " + error.message);
+          log("[SystemInfo] Send failed: " + error.message);
         }
       });
 
@@ -205,87 +162,68 @@ class AgentService {
         try {
           await this.connection.invoke("Pong", os.hostname());
         } catch (error) {
-          log("[Ping] Failed: " + error.message);
+          log("[Ping] Failed");
         }
       });
 
       await this.connection.start();
-      log("[Connect] Connected to hub successfully");
+      log("[Connect] Connected successfully");
       this.isConnected = true;
       await this.registerAgent();
     } catch (error) {
       log("[Connect] Failed: " + error.message);
       if (this.isRunning) {
-        this.reconnectAttempts++;
-        const delay = Math.min(CONFIG.reconnectInterval * this.reconnectAttempts, 60000);
-        setTimeout(() => this.connect(), delay);
+        setTimeout(() => this.connect(), CONFIG.reconnectInterval);
       }
     }
   }
 
   async registerAgent() {
-    const sysInfo = this.getSystemInfo();
     try {
-      await this.connection.invoke("RegisterAgent", sysInfo);
-      log("[Register] Agent registered");
+      await this.connection.invoke("RegisterAgent", this.getSystemInfo());
+      log("[Register] Success");
     } catch (error) {
-      log("[Register] Failed: " + error.message);
+      log("[Register] Failed");
     }
   }
 
   getSystemInfo() {
-    const networkInterfaces = os.networkInterfaces();
     let ipAddress = "Unknown";
-
-    for (const name of Object.keys(networkInterfaces)) {
-      for (const net of networkInterfaces[name]) {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name]) {
         if (net.family === "IPv4" && !net.internal) {
           ipAddress = net.address;
           break;
         }
       }
     }
-
     return {
       hostname: os.hostname(),
       platform: os.platform(),
       arch: os.arch(),
-      osType: os.type(),
-      osRelease: os.release(),
       cpus: os.cpus().length,
-      totalMemory: Math.round(os.totalmem() / (1024 * 1024 * 1024)) + " GB",
-      freeMemory: Math.round(os.freemem() / (1024 * 1024 * 1024)) + " GB",
+      totalMemory: Math.round(os.totalmem() / 1073741824) + " GB",
+      freeMemory: Math.round(os.freemem() / 1073741824) + " GB",
       uptime: Math.round(os.uptime() / 3600) + " hours",
-      ipAddress: ipAddress,
+      ipAddress,
       username: os.userInfo().username,
-      agentVersion: AGENT_VERSION,
+      version: AGENT_VERSION,
     };
   }
 
   async executeCommand(command) {
     return new Promise((resolve) => {
       try {
-        exec(command, { timeout: 60000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-          if (error) {
-            resolve({
-              success: false,
-              output: stderr || error.message,
-              exitCode: error.code || 1,
-            });
-          } else {
-            resolve({
-              success: true,
-              output: stdout,
-              exitCode: 0,
-            });
-          }
+        exec(command, { timeout: 60000, maxBuffer: 10485760 }, (error, stdout, stderr) => {
+          resolve({
+            success: !error,
+            output: error ? stderr || error.message : stdout,
+            exitCode: error ? error.code || 1 : 0,
+          });
         });
       } catch (err) {
-        resolve({
-          success: false,
-          output: err.message,
-          exitCode: 1,
-        });
+        resolve({ success: false, output: err.message, exitCode: 1 });
       }
     });
   }
@@ -293,44 +231,22 @@ class AgentService {
   stop() {
     log("[Agent] Stopping...");
     this.isRunning = false;
-
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
-
-    if (this.connection) {
-      this.connection.stop().catch(() => {});
-    }
-
-    setTimeout(() => {
-      process.exit(0);
-    }, 1000);
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+    if (this.connection) this.connection.stop().catch(() => {});
+    setTimeout(() => process.exit(0), 1000);
   }
 }
 
-// Main execution
-log(`Watson RMM Agent v${AGENT_VERSION} starting...`);
+log(`Watson RMM Agent v${AGENT_VERSION} starting`);
 
 const agent = new AgentService();
 
-process.on("SIGINT", () => {
-  log("[Signal] SIGINT received");
-  agent.stop();
-});
+process.on("SIGINT", () => agent.stop());
+process.on("SIGTERM", () => agent.stop());
 
-process.on("SIGTERM", () => {
-  log("[Signal] SIGTERM received");
-  agent.stop();
-});
-
-// Start the agent
 agent.start().catch((error) => {
-  log(`[FATAL] Start failed: ${error.message}`);
-  log(error.stack);
+  log("[FATAL] " + error.message);
   setTimeout(() => agent.start(), 5000);
 });
 
-// Keep process alive
-setInterval(() => {
-  // Silent keepalive
-}, 60000);
+setInterval(() => {}, 60000);
