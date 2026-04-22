@@ -55,36 +55,35 @@ jobs:
           Copy-Item "agent\package.json" "$servicePath\" -Force
           Copy-Item "agent\config.json" "$servicePath\" -Force
           
-          Write-Host "Copying node_modules..."
+          Write-Host "Copying node_modules (this may take a moment)..."
           Copy-Item "agent\node_modules" "$servicePath\node_modules" -Recurse -Force
           
           $batContent = "@echo off`r`nsetlocal enabledelayedexpansion`r`ncd /d %~dp0`r`nnode.exe service.js"
           Set-Content "$servicePath\run-service.bat" $batContent -Encoding ASCII
           
           $fileCount = (Get-ChildItem -Path $servicePath -Recurse -File).Count
-          Write-Host "Service directory ready with $fileCount files"
-          Write-Host "Directory size: $('{0:N2}' -f ((Get-ChildItem -Path $servicePath -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB)) MB"
+          $sizeBytes = (Get-ChildItem -Path $servicePath -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $sizeMB = [Math]::Round($sizeBytes / 1MB, 2)
+          
+          Write-Host "Service directory complete:"
+          Write-Host "  Files: $fileCount"
+          Write-Host "  Size: $sizeMB MB"
       
       - name: Harvest service directory with Heat
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Starting heat.exe harvest...
-          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr INSTALLFOLDER -cg ServiceFilesGroup -var var.ServiceSourceDir -v
+          echo Harvesting service directory...
+          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr INSTALLFOLDER -cg ServiceFilesGroup -var var.ServiceSourceDir
           
           if errorlevel 1 (
-            echo ERROR: Heat.exe failed with error code !errorlevel!
-            echo Checking if service directory exists:
-            dir service
+            echo ERROR: Heat.exe failed
             exit /b 1
           )
           
-          echo Heat.exe completed successfully
-          echo ServiceFiles.wxs created:
+          echo Heat.exe harvest completed
+          echo ServiceFiles.wxs file size:
           dir ServiceFiles.wxs
-          echo.
-          echo First 50 lines of ServiceFiles.wxs:
-          for /f "tokens=*" %%A in ('more +1 ServiceFiles.wxs ^| findstr /N "." ^| findstr /C:"^1:" /C:"^2:" /C:"^3:" /C:"^4:" /C:"^5:"') do echo %%A
       
       - name: Compile WiX sources
         shell: cmd
@@ -94,47 +93,45 @@ jobs:
           mkdir obj
           
           echo Compiling Product.wxs...
-          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service -v
+          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service
           if errorlevel 1 (
-            echo ERROR: Product.wxs compilation failed
+            echo ERROR: Product.wxs compilation failed with code !errorlevel!
             exit /b 1
           )
           
           echo Compiling ServiceFiles.wxs...
-          candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service -v
+          candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service
           if errorlevel 1 (
-            echo ERROR: ServiceFiles.wxs compilation failed
+            echo ERROR: ServiceFiles.wxs compilation failed with code !errorlevel!
             exit /b 1
           )
           
-          echo All sources compiled successfully
+          echo WiX compilation successful
       
       - name: Link MSI
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Linking MSI...
-          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab -v
+          echo Linking MSI with service files...
+          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab
           if errorlevel 1 (
-            echo ERROR: MSI linking failed
+            echo ERROR: MSI linking failed with code !errorlevel!
             exit /b 1
           )
-          echo MSI linked successfully
+          
+          echo MSI linking successful
       
       - name: Verify MSI was created
         shell: cmd
         working-directory: agent/installer
         run: |
           if not exist WatsonRMMAgent.msi (
-            echo ERROR: MSI not created
+            echo ERROR: WatsonRMMAgent.msi not created
             exit /b 1
           )
           
           echo MSI created successfully:
           dir WatsonRMMAgent.msi
-          
-          echo.
-          echo MSI file size should be 5-10 MB (includes node_modules)
       
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
