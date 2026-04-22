@@ -9,7 +9,7 @@
   <Product Id="*" 
            Name="$(var.ProductName)" 
            Language="1033" 
-           Version="$(var.ProductVersion)" 
+           Version="$(var.ProductVersion)
            Manufacturer="$(var.ProductManufacturer)" 
            UpgradeCode="$(var.UpgradeCode)">
     
