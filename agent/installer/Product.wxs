@@ -54,26 +54,27 @@
         <File Id="LicenseRtfFile" Source="$(var.SourceDir)\license.rtf" KeyPath="yes" />
       </Component>
 
-      <!-- Marker file to trigger custom action -->
+      <!-- Marker component -->
       <Component Id="InstallMarker" Guid="77777777-7777-7777-7777-777777777777">
         <CreateFolder />
       </Component>
     </DirectoryRef>
 
-    <!-- Custom action: Copy service directory -->
+    <!-- Custom action: Copy service directory (uses Directory attribute) -->
     <CustomAction Id="CopyServiceDirectory" 
-                  Execute="deferred"
-                  Impersonate="no"
-                  Return="check"
-                  ExeCommand='cmd.exe /c "xcopy /Y /E /I "[SourceDir]service" "[INSTALLFOLDER]service" &gt;nul 2&gt;&amp;1"' />
-
-    <!-- Custom action: Setup service -->
-    <CustomAction Id="SetupServiceAction" 
                   Directory="INSTALLFOLDER"
+                  ExeCommand='cmd.exe /c "xcopy /Y /E /I "[SourceDir]service" "[INSTALLFOLDER]service"'
                   Execute="deferred"
                   Impersonate="no"
-                  Return="ignore"
-                  ExeCommand='cmd.exe /c "install-service.bat"' />
+                  Return="check" />
+
+    <!-- Custom action: Setup service (uses FileKey to reference install-service.bat) -->
+    <CustomAction Id="SetupServiceAction" 
+                  FileKey="InstallServiceBatFile"
+                  ExeCommand=''
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
 
     <InstallExecuteSequence>
       <Custom Action="CopyServiceDirectory" After="InstallFinalize">NOT Installed</Custom>
