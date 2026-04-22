@@ -26,7 +26,7 @@ jobs:
           npm install --production --omit=optional
           npm prune --production
       
-      - name: Copy service files to installer
+      - name: Create service structure in installer
         shell: cmd
         run: |
           mkdir agent\installer\service
@@ -40,45 +40,49 @@ jobs:
         shell: cmd
         working-directory: agent/installer/service
         run: |
-          echo @echo off > run-service.bat
-          echo cd /d %%~dp0 >> run-service.bat
-          echo node.exe service.js >> run-service.bat
+          (
+            echo @echo off
+            echo cd /d %%~dp0
+            echo node.exe service.js
+          ) > run-service.bat
       
-      - name: Verify all files in installer directory
+      - name: Verify service directory structure
+        shell: cmd
+        working-directory: agent/installer/service
+        run: |
+          echo Service directory contents:
+          dir
+          echo.
+          echo Node modules:
+          dir node_modules | head -20
+      
+      - name: Harvest service directory with Heat
         shell: cmd
         working-directory: agent/installer
         run: |
-          echo Checking installer directory contents:
-          dir
-          echo.
-          echo Verifying service directory:
-          dir service
-          echo.
-          echo Verifying critical files:
-          if not exist service\service.js exit /b 1
-          if not exist service\package.json exit /b 1
-          if not exist service\node_modules exit /b 1
-          if not exist service\run-service.bat exit /b 1
-          if not exist nssm.exe exit /b 1
-          if not exist install-service.bat exit /b 1
-          if not exist setup-service.vbs exit /b 1
-          echo All files verified
+          heat.exe dir service -o ServiceFiles.wxs -ag -srd -dr ServiceDir -cg ServiceFilesGroup -var var.ServiceSourceDir
+          if errorlevel 1 exit /b 1
+          echo Heat harvest completed
       
-      - name: Compile Product.wxs
+      - name: Compile Product.wxs and ServiceFiles.wxs
         shell: cmd
         working-directory: agent/installer
         run: |
           if exist obj rmdir /s /q obj
           mkdir obj
-          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=.
+          candle.exe -nologo Product.wxs -out obj\Product.wixobj -dSourceDir=. -dServiceSourceDir=service
           if errorlevel 1 exit /b 1
+          candle.exe -nologo ServiceFiles.wxs -out obj\ServiceFiles.wixobj -dServiceSourceDir=service
+          if errorlevel 1 exit /b 1
+          echo Candle compilation completed
       
-      - name: Link MSI (with maximum compression)
+      - name: Link MSI with service files
         shell: cmd
         working-directory: agent/installer
         run: |
-          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj -ext WixUIExtension -dcl:high -reusecab
+          light.exe -nologo -out WatsonRMMAgent.msi obj\Product.wixobj obj\ServiceFiles.wixobj -ext WixUIExtension -dcl:high -reusecab
           if errorlevel 1 exit /b 1
+          echo Light linking completed
       
       - name: Verify MSI was created
         shell: cmd
