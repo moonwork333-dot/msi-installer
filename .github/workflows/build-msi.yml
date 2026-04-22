@@ -25,23 +25,24 @@ jobs:
         run: |
           npm install --production --omit=optional
           npm prune --production
-          dir node_modules
       
-      - name: Install pkg globally (latest)
-        run: npm install -g pkg
-      
-      - name: Compile agent to EXE (optimized)
-        working-directory: agent
-        run: |
-          pkg service.js --targets win-x64 --output peng-rmm-agent.exe --compress Gzip --strip
-          echo Compiled successfully
-          dir peng-rmm-agent.exe
-      
-      - name: Copy compiled files to installer
+      - name: Copy service files to installer
         shell: cmd
         run: |
-          copy agent\peng-rmm-agent.exe agent\installer\
-          copy agent\config.json agent\installer\
+          mkdir agent\installer\service
+          copy agent\service.js agent\installer\service\
+          copy agent\package.json agent\installer\service\
+          copy agent\package-lock.json agent\installer\service\
+          xcopy agent\node_modules agent\installer\service\node_modules\ /E /I /Y
+          copy agent\config.json agent\installer\service\
+      
+      - name: Create service wrapper batch file
+        shell: cmd
+        working-directory: agent/installer/service
+        run: |
+          echo @echo off > run-service.bat
+          echo cd /d %%~dp0 >> run-service.bat
+          echo node.exe service.js >> run-service.bat
       
       - name: Verify all files in installer directory
         shell: cmd
@@ -50,15 +51,17 @@ jobs:
           echo Checking installer directory contents:
           dir
           echo.
+          echo Verifying service directory:
+          dir service
+          echo.
           echo Verifying critical files:
-          if not exist peng-rmm-agent.exe exit /b 1
-          if not exist config.json exit /b 1
+          if not exist service\service.js exit /b 1
+          if not exist service\package.json exit /b 1
+          if not exist service\node_modules exit /b 1
+          if not exist service\run-service.bat exit /b 1
           if not exist nssm.exe exit /b 1
-          if not exist setup.bat exit /b 1
           if not exist install-service.bat exit /b 1
-          if not exist uninstall-service.bat exit /b 1
           if not exist setup-service.vbs exit /b 1
-          if not exist license.rtf exit /b 1
           echo All files verified
       
       - name: Compile Product.wxs
