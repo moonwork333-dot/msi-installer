@@ -38,7 +38,7 @@
               Source="$(var.SourceDir)\peng-rmm-agent.exe" 
               KeyPath="yes" />
         
-        <!-- WiX native service installation -->
+        <!-- WiX native service installation with explicit path -->
         <ServiceInstall Id="WatsonRMMAgentService"
                         Name="WatsonRMMAgent"
                         DisplayName="Watson RMM Agent"
@@ -46,8 +46,9 @@
                         Type="ownProcess"
                         Start="auto"
                         ErrorControl="normal"
+                        Account="LocalSystem"
                         Interactive="no"
-                        Vital="yes" />
+                        Vital="no" />
         
         <!-- Start service after installation -->
         <ServiceControl Id="StartWatsonRMMAgent"
@@ -55,7 +56,7 @@
                         Start="install"
                         Stop="both"
                         Remove="uninstall"
-                        Wait="yes" />
+                        Wait="no" />
       </Component>
       
       <!-- Config file -->
@@ -86,7 +87,7 @@
               KeyPath="yes" />
       </Component>
 
-      <!-- NSSM executable (for reference, not needed with WiX ServiceInstall) -->
+      <!-- NSSM executable -->
       <Component Id="NSSMExecutable" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
         <File Id="NssmExe" 
               Source="$(var.SourceDir)\nssm.exe" 
