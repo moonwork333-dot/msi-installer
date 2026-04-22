@@ -53,53 +53,7 @@
       <Component Id="LicenseFile" Guid="66666666-6666-6666-6666-666666666666">
         <File Id="LicenseRtfFile" Source="$(var.SourceDir)\license.rtf" KeyPath="yes" />
       </Component>
-
-      <!-- Service directory and core files -->
-      <Directory Id="ServiceDirectory" Name="service">
-        <Component Id="ServiceDirectory_Folder" Guid="77777777-7777-7777-7777-777777777777">
-          <CreateFolder />
-        </Component>
-
-        <Component Id="ServiceJs" Guid="78787879-7878-7878-7878-787878787878">
-          <File Id="ServiceJsFile" Source="$(var.SourceDir)\service\service.js" KeyPath="yes" />
-        </Component>
-
-        <Component Id="ServicePackageJson" Guid="88888888-8888-8888-8888-888888888888">
-          <File Id="ServicePackageJsonFile" Source="$(var.SourceDir)\service\package.json" KeyPath="yes" />
-        </Component>
-
-        <Component Id="ServiceConfigJson" Guid="99999999-9999-9999-9999-999999999999">
-          <File Id="ServiceConfigJsonFile" Source="$(var.SourceDir)\service\config.json" KeyPath="yes" />
-        </Component>
-
-        <Component Id="RunServiceBat" Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA">
-          <File Id="RunServiceBatFile" Source="$(var.SourceDir)\service\run-service.bat" KeyPath="yes" />
-        </Component>
-      </Directory>
     </DirectoryRef>
-
-    <!-- Custom Actions for copying service files -->
-    <CustomAction Id="CopyServiceFilesAction" 
-                  BinaryKey="ServiceCopyBinary"
-                  DllEntry="CopyServiceFiles"
-                  Execute="deferred"
-                  Return="check"
-                  Impersonate="no" />
-
-    <CustomAction Id="SetupService"
-                  FileKey="SetupServiceVbsFile"
-                  ExeCommand=""
-                  Execute="deferred"
-                  Return="ignore"
-                  Impersonate="no" />
-
-    <!-- Binary for custom action (inline PowerShell script) -->
-    <Binary Id="ServiceCopyBinary" SourcePath="service_copy.dll" />
-
-    <InstallExecuteSequence>
-      <Custom Action="CopyServiceFilesAction" After="InstallFiles">NOT Installed</Custom>
-      <Custom Action="SetupService" After="CopyServiceFilesAction">NOT Installed</Custom>
-    </InstallExecuteSequence>
 
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
@@ -109,11 +63,7 @@
       <ComponentRef Id="NssmExe" />
       <ComponentRef Id="SetupServiceVbs" />
       <ComponentRef Id="LicenseFile" />
-      <ComponentRef Id="ServiceDirectory_Folder" />
-      <ComponentRef Id="ServiceJs" />
-      <ComponentRef Id="ServicePackageJson" />
-      <ComponentRef Id="ServiceConfigJson" />
-      <ComponentRef Id="RunServiceBat" />
+      <ComponentGroupRef Id="ServiceFilesGroup" />
     </Feature>
 
     <!-- UI -->
