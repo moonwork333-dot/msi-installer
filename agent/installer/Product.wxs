@@ -32,31 +32,42 @@
 
     <!-- Product Components -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <!-- Main executable -->
-      <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
-        <File Id="AgentExe" 
-              Source="$(var.SourceDir)\peng-rmm-agent.exe" 
-              KeyPath="yes" />
-      </Component>
-      
-      <!-- Config file -->
-      <Component Id="ConfigFile" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
-        <File Id="ConfigJson" 
-              Source="$(var.SourceDir)\config.json" 
-              KeyPath="yes" />
-      </Component>
+      <!-- Service files -->
+      <Directory Id="ServiceDir" Name="service">
+        <Component Id="ServiceJS" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+          <File Id="ServiceJsFile" 
+                Source="$(var.SourceDir)\service\service.js" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="PackageJSON" Guid="B2C3D4E5-F6A7-8901-BCDE-F23456789012">
+          <File Id="PackageJsonFile" 
+                Source="$(var.SourceDir)\service\package.json" 
+                KeyPath="yes" />
+        </Component>
 
-      <!-- Setup script -->
+        <Component Id="RunServiceBat" Guid="C3D4E5F6-A7B8-9012-CDEF-34567890ABCD">
+          <File Id="RunServiceBatFile" 
+                Source="$(var.SourceDir)\service\run-service.bat" 
+                KeyPath="yes" />
+        </Component>
+
+        <Component Id="ConfigFile" Guid="D4E5F6A7-B8C9-0123-CDEF-456789ABCDEF">
+          <File Id="ConfigJsonFile" 
+                Source="$(var.SourceDir)\service\config.json" 
+                KeyPath="yes" />
+        </Component>
+
+        <!-- Node modules - using Component with many files -->
+        <Component Id="NodeModules" Guid="E5F6A7B8-C9D0-1234-CDEF-56789ABCDEF0">
+          <CreateFolder />
+        </Component>
+      </Directory>
+
+      <!-- Batch scripts -->
       <Component Id="SetupBatchFile" Guid="F7A8B9C0-D1E2-3456-CDEF-78901234ABCD">
         <File Id="SetupBat" 
               Source="$(var.SourceDir)\setup.bat" 
-              KeyPath="yes" />
-      </Component>
-
-      <!-- Setup service VBS script -->
-      <Component Id="SetupServiceVBS" Guid="C7B8D9E0-F1A2-3456-BCDE-F789012345AB">
-        <File Id="SetupServiceVbs" 
-              Source="$(var.SourceDir)\setup-service.vbs" 
               KeyPath="yes" />
       </Component>
 
@@ -81,6 +92,13 @@
               KeyPath="yes" />
       </Component>
 
+      <!-- Setup service VBS script -->
+      <Component Id="SetupServiceVBS" Guid="C7B8D9E0-F1A2-3456-BCDE-F789012345AB">
+        <File Id="SetupServiceVbs" 
+              Source="$(var.SourceDir)\setup-service.vbs" 
+              KeyPath="yes" />
+      </Component>
+
       <!-- License file -->
       <Component Id="LicenseFile" Guid="A7B8C9D0-E1F2-3456-CDEF-789ABCDE0123">
         <File Id="LicenseRtf" 
@@ -89,7 +107,7 @@
       </Component>
     </DirectoryRef>
 
-    <!-- Custom Action - Execute VBS script to install service -->
+    <!-- Custom Action - Run setup VBS -->
     <CustomAction Id="SetupService"
                   FileKey="SetupServiceVbs"
                   ExeCommand=""
@@ -103,13 +121,16 @@
 
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="ServiceJS" />
+      <ComponentRef Id="PackageJSON" />
+      <ComponentRef Id="RunServiceBat" />
       <ComponentRef Id="ConfigFile" />
+      <ComponentRef Id="NodeModules" />
       <ComponentRef Id="SetupBatchFile" />
-      <ComponentRef Id="SetupServiceVBS" />
       <ComponentRef Id="InstallBatchFile" />
       <ComponentRef Id="UninstallBatchFile" />
       <ComponentRef Id="NSSMExecutable" />
+      <ComponentRef Id="SetupServiceVBS" />
       <ComponentRef Id="LicenseFile" />
     </Feature>
 
