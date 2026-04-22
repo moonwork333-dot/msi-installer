@@ -16,68 +16,72 @@
     <Package InstallerVersion="500" 
              Compressed="yes" 
              InstallScope="perMachine"
-             Description="$(var.ProductName) Installer"
-             Comments="Watson RMM Agent for remote monitoring and management" />
+             Description="$(var.ProductName) Installer" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- Directory Structure -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Watson RMM Agent" />
       </Directory>
     </Directory>
 
-    <!-- Product Components -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <!-- Batch scripts at root level -->
-      <Component Id="SetupBatchFile" Guid="66666666-6666-6666-6666-666666666666">
-        <File Id="SetupBat" 
-              Source="$(var.SourceDir)\setup.bat" 
-              KeyPath="yes" />
+      <!-- Support files at root level -->
+      <Component Id="SetupBat" Guid="11111111-1111-1111-1111-111111111111">
+        <File Id="SetupBatFile" Source="$(var.SourceDir)\setup.bat" KeyPath="yes" />
       </Component>
 
-      <!-- Install service batch file -->
-      <Component Id="InstallBatchFile" Guid="77777777-7777-7777-7777-777777777777">
-        <File Id="InstallBat" 
-              Source="$(var.SourceDir)\install-service.bat" 
-              KeyPath="yes" />
+      <Component Id="InstallServiceBat" Guid="22222222-2222-2222-2222-222222222222">
+        <File Id="InstallServiceBatFile" Source="$(var.SourceDir)\install-service.bat" KeyPath="yes" />
       </Component>
 
-      <!-- Uninstall service batch file -->
-      <Component Id="UninstallBatchFile" Guid="88888888-8888-8888-8888-888888888888">
-        <File Id="UninstallBat" 
-              Source="$(var.SourceDir)\uninstall-service.bat" 
-              KeyPath="yes" />
+      <Component Id="UninstallServiceBat" Guid="33333333-3333-3333-3333-333333333333">
+        <File Id="UninstallServiceBatFile" Source="$(var.SourceDir)\uninstall-service.bat" KeyPath="yes" />
       </Component>
 
-      <!-- NSSM executable -->
-      <Component Id="NSSMExecutable" Guid="99999999-9999-9999-9999-999999999999">
-        <File Id="NssmExe" 
-              Source="$(var.SourceDir)\nssm.exe" 
-              KeyPath="yes" />
+      <Component Id="NssmExe" Guid="44444444-4444-4444-4444-444444444444">
+        <File Id="NssmExeFile" Source="$(var.SourceDir)\nssm.exe" KeyPath="yes" />
       </Component>
 
-      <!-- Setup service VBS script -->
-      <Component Id="SetupServiceVBS" Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA">
-        <File Id="SetupServiceVbs" 
-              Source="$(var.SourceDir)\setup-service.vbs" 
-              KeyPath="yes" />
+      <Component Id="SetupServiceVbs" Guid="55555555-5555-5555-5555-555555555555">
+        <File Id="SetupServiceVbsFile" Source="$(var.SourceDir)\setup-service.vbs" KeyPath="yes" />
       </Component>
 
-      <!-- License file -->
-      <Component Id="LicenseFile" Guid="BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB">
-        <File Id="LicenseRtf" 
-              Source="$(var.SourceDir)\license.rtf" 
-              KeyPath="yes" />
+      <Component Id="LicenseFile" Guid="66666666-6666-6666-6666-666666666666">
+        <File Id="LicenseRtfFile" Source="$(var.SourceDir)\license.rtf" KeyPath="yes" />
       </Component>
+
+      <!-- Service directory and files -->
+      <Directory Id="ServiceDirectory" Name="service">
+        <Component Id="ServiceJs" Guid="77777777-7777-7777-7777-777777777777">
+          <File Id="ServiceJsFile" Source="$(var.SourceDir)\service\service.js" KeyPath="yes" />
+        </Component>
+
+        <Component Id="ServicePackageJson" Guid="88888888-8888-8888-8888-888888888888">
+          <File Id="ServicePackageJsonFile" Source="$(var.SourceDir)\service\package.json" KeyPath="yes" />
+        </Component>
+
+        <Component Id="ServiceConfigJson" Guid="99999999-9999-9999-9999-999999999999">
+          <File Id="ServiceConfigJsonFile" Source="$(var.SourceDir)\service\config.json" KeyPath="yes" />
+        </Component>
+
+        <Component Id="RunServiceBat" Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA">
+          <File Id="RunServiceBatFile" Source="$(var.SourceDir)\service\run-service.bat" KeyPath="yes" />
+        </Component>
+
+        <!-- Node modules directory -->
+        <Component Id="NodeModules" Guid="BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB">
+          <CreateFolder />
+        </Component>
+      </Directory>
     </DirectoryRef>
 
     <!-- Custom Action - Run setup VBS -->
     <CustomAction Id="SetupService"
-                  FileKey="SetupServiceVbs"
+                  FileKey="SetupServiceVbsFile"
                   ExeCommand=""
                   Execute="immediate"
                   Return="ignore"
@@ -89,13 +93,17 @@
 
     <!-- Features -->
     <Feature Id="ProductFeature" Title="Watson RMM Agent" Level="1">
-      <ComponentRef Id="SetupBatchFile" />
-      <ComponentRef Id="InstallBatchFile" />
-      <ComponentRef Id="UninstallBatchFile" />
-      <ComponentRef Id="NSSMExecutable" />
-      <ComponentRef Id="SetupServiceVBS" />
+      <ComponentRef Id="SetupBat" />
+      <ComponentRef Id="InstallServiceBat" />
+      <ComponentRef Id="UninstallServiceBat" />
+      <ComponentRef Id="NssmExe" />
+      <ComponentRef Id="SetupServiceVbs" />
       <ComponentRef Id="LicenseFile" />
-      <ComponentGroupRef Id="ServiceFilesGroup" />
+      <ComponentRef Id="ServiceJs" />
+      <ComponentRef Id="ServicePackageJson" />
+      <ComponentRef Id="ServiceConfigJson" />
+      <ComponentRef Id="RunServiceBat" />
+      <ComponentRef Id="NodeModules" />
     </Feature>
 
     <!-- UI -->
